@@ -21,6 +21,9 @@
 
 UV_VERSION="0.12.13"
 
+# shellcheck source=fetch.sh
+. "$(dirname "${BASH_SOURCE[0]}")/fetch.sh"
+
 # demo/.toolchain, matching record.sh, unless the caller already chose one.
 if [ -z "${TOOLCHAIN_DIR:-}" ]; then
   TOOLCHAIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.toolchain"
@@ -80,12 +83,14 @@ uv_fetch() {
 
   work="$(mktemp -d)"
   # No `set -e` bail-out here: a failed fetch is a fallback, not a crash.
-  if ! curl -fsSL "$url" -o "$work/uv.tar.gz"; then
-    uv_log "could not download $url"
+  # fetch_url retries a transient failure and has already said so on stderr.
+  if ! fetch_url "$url" "$work/uv.tar.gz"; then
     rm -rf "$work"
     return 1
   fi
-  if curl -fsSL "$url.sha256" -o "$work/uv.sha256" 2>/dev/null; then
+  # The checksum is advisory — one retry, quietly, so a missing .sha256 costs a
+  # second rather than the full backoff ladder.
+  if FETCH_ATTEMPTS=2 FETCH_BACKOFF=1 fetch_url "$url.sha256" "$work/uv.sha256" 2>/dev/null; then
     if ! uv_verify_checksum "$work/uv.tar.gz" "$work/uv.sha256"; then
       uv_log "checksum mismatch on the uv download"
       rm -rf "$work"

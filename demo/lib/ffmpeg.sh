@@ -14,6 +14,9 @@
 
 FFMPEG_URL="https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
 
+# shellcheck source=fetch.sh
+. "$(dirname "${BASH_SOURCE[0]}")/fetch.sh"
+
 ffmpeg_log() { printf '  %s\n' "$*" >&2; }
 
 ensure_ffmpeg() {
@@ -30,8 +33,7 @@ ensure_ffmpeg() {
   ffmpeg_log "fetching ffmpeg (static build)"
   local work
   work="$(mktemp -d)"
-  if ! curl -fsSL "$FFMPEG_URL" -o "$work/ffmpeg.tar.xz"; then
-    ffmpeg_log "could not download $FFMPEG_URL"
+  if ! fetch_url "$FFMPEG_URL" "$work/ffmpeg.tar.xz"; then
     rm -rf "$work"
     return 1
   fi

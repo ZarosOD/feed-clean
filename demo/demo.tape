@@ -13,6 +13,13 @@
 # hide the venv wiring, and sleep long enough after each Enter to actually read
 # the output. The tallest screen here is a 7-row table: 10 lines of output, a
 # comment and a command.
+#
+# The last beat shows fewer rows (3) than the others on purpose: --wrap spends
+# up to three screen lines on one record, and the row count that keeps it to
+# the same 10 lines is 3. The columns are `line sku reject_rules reason` rather
+# than just the sku because the two unresolved-duplicate rows are identical in
+# every other shown field — the line number is what tells them apart, and it is
+# also what someone fixing the feed by hand actually needs.
 
 Set Shell bash
 Set FontSize 15
@@ -57,5 +64,5 @@ Show
 
 Type "# and what it refused to guess, in out/rejects.csv" Enter
 Sleep 700ms
-Type "python demo/lib/preview.py out/rejects.csv sku reject_rules reason --rows 5 --cell 96" Enter
-Sleep 4s
+Type `python demo/lib/preview.py out/rejects.csv line sku reject_rules reason --rows 3 --cell 62 --wrap reason` Enter
+Sleep 5s

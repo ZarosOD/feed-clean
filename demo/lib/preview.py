@@ -7,22 +7,31 @@ line, from the tape.
     python demo/lib/preview.py out/products.csv sku name price
     python demo/lib/preview.py out/rejects.csv --rows 8 --cell 28
     python demo/lib/preview.py feed.csv sku vendor --collapse
+    python demo/lib/preview.py out/rejects.csv sku rule reason --wrap reason
 
 Why this exists: the first portfolio piece wrote a one-off version of it, the
 second did not need one, and the next two both do — a before/after of a CSV is
 the whole story in a terminal clip. Writing it a third time would have been a
 fork of a thing that was never project-specific in the first place.
 
-Two rules it follows, because a demo that lies is worse than no demo:
+Three rules it follows, because a demo that lies is worse than no demo:
 
   * A capped table says how many rows it did not show, so nobody reads six
     rows as "the file has six rows".
   * A column that is not in the file is an error naming the ones that are,
     not a silently blank column that looks fine on camera.
+  * Two rows that differ in the file never render as the same line. That is
+    what --wrap is for: a rejects file's explanation column is prose, and
+    truncating prose to a fixed width tends to cut exactly the part that
+    distinguishes one row from another. Wrapping shows all of it instead.
 
 Options:
   --rows N     rows to show before the "and N more" footer   (default 6)
   --cell N     truncate any cell wider than N characters     (default 34)
+  --wrap COL   wrap COL across continuation lines at --cell width instead of
+               truncating it; the other columns stay blank on those lines.
+               One column only — two wrapped columns interleaved are not a
+               table any more. --rows still counts records, not screen lines.
   --collapse   drop a row that is identical to the one above it, for a file
                that repeats parent-level fields across child rows
   --no-count   suppress the footer (use when the cap is above the row count
@@ -33,42 +42,61 @@ from __future__ import annotations
 
 import csv
 import sys
+import textwrap
 
 DEFAULT_ROWS = 6
 DEFAULT_CELL = 34
 ELLIPSIS = "…"
 
 
-def parse_args(argv: list[str]) -> tuple[str, list[str], int, int, bool, bool]:
-    path = ""
-    columns: list[str] = []
-    rows, cell = DEFAULT_ROWS, DEFAULT_CELL
-    collapse, count = False, True
+class Args:
+    """Parsed command line. A class rather than a widening tuple."""
+
+    def __init__(self) -> None:
+        self.path = ""
+        self.columns: list[str] = []
+        self.rows = DEFAULT_ROWS
+        self.cell = DEFAULT_CELL
+        self.wrap: str | None = None
+        self.collapse = False
+        self.count = True
+
+
+def parse_args(argv: list[str]) -> Args:
+    args = Args()
 
     i = 0
     while i < len(argv):
         arg = argv[i]
         if arg == "--rows":
-            rows = int(argv[i + 1])
+            args.rows = int(argv[i + 1])
             i += 2
         elif arg == "--cell":
-            cell = int(argv[i + 1])
+            args.cell = int(argv[i + 1])
+            i += 2
+        elif arg == "--wrap":
+            if args.wrap is not None:
+                raise SystemExit(
+                    "preview: --wrap takes one column; two wrapped columns "
+                    "side by side stop being a table"
+                )
+            args.wrap = argv[i + 1]
             i += 2
         elif arg == "--collapse":
-            collapse, i = True, i + 1
+            args.collapse, i = True, i + 1
         elif arg == "--no-count":
-            count, i = False, i + 1
+            args.count, i = False, i + 1
         elif arg.startswith("--"):
             raise SystemExit(f"preview: unknown option {arg}")
-        elif not path:
-            path, i = arg, i + 1
+        elif not args.path:
+            args.path, i = arg, i + 1
         else:
-            columns.append(arg)
+            args.columns.append(arg)
             i += 1
 
-    if not path:
+    if not args.path:
         raise SystemExit(__doc__.strip().splitlines()[0])
-    return path, columns, rows, cell, collapse, count
+    return args
 
 
 def clip(value: str, width: int) -> str:
@@ -82,13 +110,43 @@ def is_numeric(value: str) -> bool:
     return bool(value) and value.lstrip("-+").replace(".", "", 1).replace(",", "").isdigit()
 
 
-def render(header: list[str], body: list[list[str]]) -> list[str]:
-    table = [header] + body
+def explode(
+    header: list[str], row: list[str], wrap_index: int | None, wrap_width: int
+) -> list[list[str]]:
+    """One record as the physical lines it occupies.
+
+    Without --wrap that is always a single line. With it, the wrapped column
+    continues onto further lines while the rest of the row stays blank, so the
+    eye reads the block as one record.
+    """
+    if wrap_index is None:
+        return [row]
+    pieces = textwrap.wrap(row[wrap_index], wrap_width) or [""]
+    lines = []
+    for n, piece in enumerate(pieces):
+        cells = [value if n == 0 else "" for value in row]
+        cells[wrap_index] = piece
+        lines.append(cells)
+    return lines
+
+
+def render(
+    header: list[str],
+    body: list[list[str]],
+    wrap_index: int | None = None,
+    wrap_width: int = DEFAULT_CELL,
+) -> list[str]:
+    blocks = [explode(header, row, wrap_index, wrap_width) for row in body]
+    physical = [line for block in blocks for line in block]
+
+    table = [header] + physical
     widths = [max(len(row[i]) for row in table) for i in range(len(header))]
     # Right-align a column only if every value in it is a number, so prices and
     # counts line up on the decimal point without dragging text columns along.
+    # A wrapped column is prose by definition, so it is never right-aligned —
+    # and its blank continuation cells would fail the numeric test anyway.
     right = [
-        all(is_numeric(row[i]) for row in body) if body else False
+        all(is_numeric(row[i]) for row in body) if body and i != wrap_index else False
         for i in range(len(header))
     ]
 
@@ -99,11 +157,15 @@ def render(header: list[str], body: list[list[str]]) -> list[str]:
         ]
         return "  ".join(cells).rstrip()
 
-    return [line(header), "  ".join("-" * w for w in widths)] + [line(r) for r in body]
+    return [line(header), "  ".join("-" * w for w in widths)] + [
+        line(r) for r in physical
+    ]
 
 
 def main(argv: list[str]) -> int:
-    path, columns, max_rows, max_cell, collapse, show_count = parse_args(argv)
+    args = parse_args(argv)
+    path, max_rows, max_cell = args.path, args.rows, args.cell
+    columns, collapse, show_count = args.columns, args.collapse, args.count
 
     with open(path, newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
@@ -126,11 +188,31 @@ def main(argv: list[str]) -> int:
     else:
         columns = list(fieldnames)
 
+    # Same discipline as a missing column: naming a column to wrap that is not
+    # on screen is a silent no-op otherwise, and the tape looks fine.
+    wrap_index = None
+    if args.wrap is not None:
+        if args.wrap not in columns:
+            print(
+                f"preview: cannot wrap {args.wrap}, it is not among the columns "
+                f"being shown: {', '.join(columns)}",
+                file=sys.stderr,
+            )
+            return 2
+        wrap_index = columns.index(args.wrap)
+
     selected: list[list[str]] = []
     consumed = 0
     for row in rows:
         consumed += 1
-        cells = [clip(row.get(c) or "", max_cell) for c in columns]
+        # The wrapped column keeps its full text — wrapping, not truncation, is
+        # the whole point — so it is exempt from the per-cell cap.
+        cells = [
+            " ".join((row.get(c) or "").split())
+            if i == wrap_index
+            else clip(row.get(c) or "", max_cell)
+            for i, c in enumerate(columns)
+        ]
         # A collapsed row is not hidden — the row above it is standing in for
         # it — so it counts as consumed and never reaches the footer.
         if collapse and selected and cells == selected[-1]:
@@ -139,7 +221,7 @@ def main(argv: list[str]) -> int:
         if len(selected) == max_rows:
             break
 
-    for line in render(columns, selected):
+    for line in render(columns, selected, wrap_index, max_cell):
         print(line)
 
     remaining = len(rows) - consumed

@@ -23,6 +23,8 @@ TTYD_VERSION="1.7.7"
 TOOLCHAIN_DIR="${TOOLCHAIN_DIR:?vhs.sh needs TOOLCHAIN_DIR}"
 TOOLCHAIN_BIN="$TOOLCHAIN_DIR/bin"
 
+# shellcheck source=fetch.sh
+. "$(dirname "${BASH_SOURCE[0]}")/fetch.sh"
 # shellcheck source=ffmpeg.sh
 . "$(dirname "${BASH_SOURCE[0]}")/ffmpeg.sh"
 # shellcheck source=chromium-libs.sh
@@ -36,7 +38,12 @@ ensure_vhs() {
   local url="https://github.com/charmbracelet/vhs/releases/download/v${VHS_VERSION}/vhs_${VHS_VERSION}_Linux_x86_64.tar.gz"
   local work
   work="$(mktemp -d)"
-  curl -fsSL "$url" -o "$work/vhs.tar.gz"
+  # Fatal, not a fallback: there is no recording without vhs. fetch_url has
+  # already retried and explained itself, so just stop.
+  if ! fetch_url "$url" "$work/vhs.tar.gz"; then
+    rm -rf "$work"
+    return 1
+  fi
   tar xzf "$work/vhs.tar.gz" -C "$work"
   find "$work" -name vhs -type f -exec install -m 0755 {} "$TOOLCHAIN_BIN/vhs" \;
   rm -rf "$work"
@@ -46,9 +53,11 @@ ensure_ttyd() {
   command -v ttyd >/dev/null 2>&1 && return 0
   [ -x "$TOOLCHAIN_BIN/ttyd" ] && return 0
   vhs_log "fetching ttyd $TTYD_VERSION"
-  curl -fsSL \
+  # This is the asset whose CDN returned 500 for a couple of minutes on
+  # 2026-09-11 and took `make demo` down with it. See lib/fetch.sh.
+  fetch_url \
     "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.x86_64" \
-    -o "$TOOLCHAIN_BIN/ttyd"
+    "$TOOLCHAIN_BIN/ttyd" || return 1
   chmod 0755 "$TOOLCHAIN_BIN/ttyd"
 }
 

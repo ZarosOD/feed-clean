@@ -107,3 +107,92 @@ def test_empty_file_says_so_rather_than_printing_a_blank_table(tmp_path, capsys)
 def test_unknown_option_stops_instead_of_being_read_as_a_column(tmp_path, capsys):
     with pytest.raises(SystemExit):
         preview.main([write_csv(tmp_path, FEED), "--nope"])
+
+
+# --wrap. Added while piece #3 was the only caller: a rejects file's reason
+# column is prose, and truncating prose cuts the part that explains the reject.
+
+REJECTS = (
+    "line,sku,reason\n"
+    "288,AB-1,two equally recent rows disagree on price 64.00 versus 71.00 and neither wins\n"
+    "289,AB-2,short reason\n"
+)
+
+
+def test_wrap_shows_all_of_a_long_cell_across_lines(tmp_path, capsys):
+    _, lines = run(
+        capsys, write_csv(tmp_path, REJECTS), "line", "sku", "reason",
+        "--cell", "30", "--wrap", "reason",
+    )
+    # Nothing is elided, and the full sentence is recoverable from the screen.
+    assert "…" not in "\n".join(lines)
+    assert "neither wins" in " ".join(" ".join(lines).split())
+
+
+def test_wrapped_continuation_lines_leave_the_other_columns_blank(tmp_path, capsys):
+    _, lines = run(
+        capsys, write_csv(tmp_path, REJECTS), "line", "sku", "reason",
+        "--cell", "30", "--wrap", "reason",
+    )
+    body = lines[2:]
+    # The first line of the record carries the key columns; its continuations
+    # must not repeat them, or the block reads as several records. ("line" is
+    # all-numeric, so it is right-aligned and the row starts with a space.)
+    assert body[0].split()[:2] == ["288", "AB-1"]
+    continuations = [line for line in body if line and not line.split()[0].isdigit()]
+    assert continuations, "expected the long reason to wrap"
+    for line in continuations:
+        assert "AB-1" not in line and "288" not in line
+
+
+def test_wrap_respects_the_cell_width(tmp_path, capsys):
+    _, lines = run(
+        capsys, write_csv(tmp_path, REJECTS), "line", "sku", "reason",
+        "--cell", "24", "--wrap", "reason",
+    )
+    # Every rendered line stays inside the key columns plus the wrap width, so
+    # the tape author can still predict whether it fits the terminal. The rule
+    # line spans the full table, and its last segment is the wrap column.
+    rule = lines[1]
+    assert len(rule.split("  ")[-1]) <= 24
+    assert max(len(line) for line in lines) <= len(rule)
+
+
+def test_wrap_keeps_the_row_cap_counting_records_not_screen_lines(tmp_path, capsys):
+    _, lines = run(
+        capsys, write_csv(tmp_path, REJECTS), "line", "sku", "reason",
+        "--cell", "30", "--wrap", "reason", "--rows", "1",
+    )
+    # One record shown, which occupies three screen lines — the footer counts
+    # the record, otherwise a wrapped table would claim to have skipped rows
+    # it actually displayed.
+    assert lines[-1] == "... and 1 more rows (2 total)"
+
+
+def test_wrap_never_right_aligns_the_prose_column(tmp_path, capsys):
+    csv_text = "sku,note\nAB-1,100\nAB-2,2\n"
+    _, lines = run(capsys, write_csv(tmp_path, csv_text), "sku", "note", "--wrap", "note")
+    # Without --wrap this column is all-numeric and would be right-aligned;
+    # a wrapped column is prose by contract and stays left.
+    assert lines[3].startswith("AB-2  2")
+
+
+def test_wrap_on_a_column_that_is_not_shown_is_an_error(tmp_path, capsys):
+    code = preview.main([write_csv(tmp_path, REJECTS), "line", "sku", "--wrap", "reason"])
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "cannot wrap reason" in err
+    assert "line, sku" in err
+
+
+def test_two_wrapped_columns_are_refused(tmp_path):
+    with pytest.raises(SystemExit):
+        preview.main(
+            [write_csv(tmp_path, REJECTS), "--wrap", "sku", "--wrap", "reason"]
+        )
+
+
+def test_wrap_is_off_by_default_so_existing_tapes_are_unchanged(tmp_path, capsys):
+    _, lines = run(capsys, write_csv(tmp_path, REJECTS), "line", "sku", "reason", "--cell", "30")
+    assert len(lines) == 4  # header, rule, two rows — one line per record
+    assert "…" in lines[2]
