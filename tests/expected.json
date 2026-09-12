@@ -1,0 +1,1033 @@
+{
+  "rows_in": 318,
+  "clean_skus": [
+    "NW-1000",
+    "NW-1003",
+    "NW-1006",
+    "NW-1009",
+    "NW-1012",
+    "NW-1015",
+    "NW-1018",
+    "NW-1021",
+    "NW-1024",
+    "NW-1027",
+    "NW-1030",
+    "NW-1033",
+    "NW-1036",
+    "NW-1039",
+    "NW-1042",
+    "NW-1045",
+    "NW-1048",
+    "NW-1051",
+    "NW-1054",
+    "NW-1057",
+    "NW-1060",
+    "NW-1063",
+    "NW-1066",
+    "NW-1069",
+    "NW-1072",
+    "NW-1075",
+    "NW-1078",
+    "NW-1081",
+    "NW-1084",
+    "NW-1087",
+    "NW-1090",
+    "NW-1093",
+    "NW-1096",
+    "NW-1099",
+    "NW-1102",
+    "NW-1105",
+    "NW-1108",
+    "NW-1111",
+    "NW-1114",
+    "NW-1117",
+    "NW-1120",
+    "NW-1123",
+    "NW-1126",
+    "NW-1129",
+    "NW-1132",
+    "NW-1135",
+    "NW-1138",
+    "NW-1141",
+    "NW-1144",
+    "NW-1147",
+    "NW-1150",
+    "NW-1153",
+    "NW-1156",
+    "NW-1159",
+    "NW-1162",
+    "NW-1165",
+    "NW-1168",
+    "NW-1171",
+    "NW-1174",
+    "NW-1177",
+    "NW-1180",
+    "NW-1183",
+    "NW-1186",
+    "NW-1189",
+    "NW-1192",
+    "NW-1195",
+    "NW-1198",
+    "NW-1201",
+    "NW-1204",
+    "NW-1207",
+    "NW-1210",
+    "NW-1213",
+    "NW-1216",
+    "NW-1219",
+    "NW-1222",
+    "NW-1225",
+    "NW-1228",
+    "NW-1231",
+    "NW-1234",
+    "NW-1237",
+    "NW-1240",
+    "NW-1243",
+    "NW-1246",
+    "NW-1249",
+    "NW-1252",
+    "NW-1255",
+    "NW-1258",
+    "NW-1261",
+    "NW-1264",
+    "NW-1267",
+    "NW-1270",
+    "NW-1273",
+    "NW-1276",
+    "NW-1279",
+    "NW-1282",
+    "NW-1285",
+    "NW-1288",
+    "NW-1291",
+    "NW-1294",
+    "NW-1297",
+    "NW-1300",
+    "NW-1303",
+    "NW-1306",
+    "NW-1309",
+    "NW-1312",
+    "NW-1315",
+    "NW-1318",
+    "NW-1321",
+    "NW-1324",
+    "NW-1327",
+    "NW-1330",
+    "NW-1333",
+    "NW-1336",
+    "NW-1339",
+    "NW-1342",
+    "NW-1345",
+    "NW-1348",
+    "NW-1351",
+    "NW-1354",
+    "NW-1357",
+    "NW-1360",
+    "NW-1363",
+    "NW-1366",
+    "NW-1369",
+    "NW-1372",
+    "NW-1375",
+    "NW-1378",
+    "NW-1381",
+    "NW-1384",
+    "NW-1387",
+    "NW-1390",
+    "NW-1393",
+    "NW-1396",
+    "NW-1399",
+    "NW-1402",
+    "NW-1405",
+    "NW-1408",
+    "NW-1411",
+    "NW-1414",
+    "NW-1417",
+    "NW-1420",
+    "NW-1423",
+    "NW-1426",
+    "NW-1429",
+    "NW-1432",
+    "NW-1435",
+    "NW-1438",
+    "NW-1441",
+    "NW-1444",
+    "NW-1447",
+    "NW-1450",
+    "NW-1453",
+    "NW-1456",
+    "NW-1459",
+    "NW-1462",
+    "NW-1465",
+    "NW-1468",
+    "NW-1471",
+    "NW-1474",
+    "NW-1477",
+    "NW-1480",
+    "NW-1483",
+    "NW-1486",
+    "NW-1489",
+    "NW-1492",
+    "NW-1495",
+    "NW-1498",
+    "NW-1501",
+    "NW-1504",
+    "NW-1507",
+    "NW-1510",
+    "NW-1513",
+    "NW-1516",
+    "NW-1519",
+    "NW-1522",
+    "NW-1525",
+    "NW-1528",
+    "NW-1531",
+    "NW-1534",
+    "NW-1537",
+    "NW-1540",
+    "NW-1543",
+    "NW-1546",
+    "NW-1549",
+    "NW-1552",
+    "NW-1555",
+    "NW-1558",
+    "NW-1561",
+    "NW-1564",
+    "NW-1567",
+    "NW-1570",
+    "NW-1573",
+    "NW-1576",
+    "NW-1579",
+    "NW-1582",
+    "NW-1585",
+    "NW-1588",
+    "NW-1591",
+    "NW-1594",
+    "NW-1597",
+    "NW-1600",
+    "NW-1603",
+    "NW-1606",
+    "NW-1609",
+    "NW-1612",
+    "NW-1615",
+    "NW-1618",
+    "NW-1621",
+    "NW-1624",
+    "NW-1627",
+    "NW-1630",
+    "NW-1633",
+    "NW-1636",
+    "NW-1639",
+    "NW-1642",
+    "NW-1645",
+    "NW-1648",
+    "NW-1651",
+    "NW-1654",
+    "NW-1657",
+    "NW-1660",
+    "NW-1663",
+    "NW-1666",
+    "NW-1669",
+    "NW-1672",
+    "NW-1675",
+    "NW-1678",
+    "NW-1681",
+    "NW-1684",
+    "NW-1687",
+    "NW-1690",
+    "NW-1693",
+    "NW-1696",
+    "NW-1699",
+    "NW-1702",
+    "NW-1705",
+    "NW-1708",
+    "NW-1711",
+    "NW-1714",
+    "NW-1717",
+    "NW-1720",
+    "NW-1723",
+    "NW-1726",
+    "NW-1729",
+    "NW-1732",
+    "NW-1735",
+    "NW-1738",
+    "NW-1741",
+    "NW-1744",
+    "NW-1747",
+    "NW-1750",
+    "NW-1753",
+    "NW-1756",
+    "NW-1759",
+    "NW-1762",
+    "NW-1765",
+    "NW-1768",
+    "NW-1771",
+    "NW-1774",
+    "NW-1777",
+    "NW-1780",
+    "NW-1783",
+    "NW-1786",
+    "NW-1789",
+    "NW-1792",
+    "NW-1795",
+    "NW-1798",
+    "NW-1801",
+    "NW-1804",
+    "NW-1807",
+    "NW-1810",
+    "NW-1813",
+    "NW-1816",
+    "NW-1819",
+    "NW-1822",
+    "NW-1825",
+    "NW-1828",
+    "NW-1831",
+    "NW-1834",
+    "NW-1837",
+    "NW-D001",
+    "NW-D002",
+    "NW-D003",
+    "NW-D005",
+    "NW-D006",
+    "NW-F001",
+    "NW-F002",
+    "NW-F003",
+    "NW-F004",
+    "NW-F005",
+    "NW-F006",
+    "NW-F007",
+    "NW-F008",
+    "NW-F009",
+    "NW-F010",
+    "NW-F011",
+    "NW-V001",
+    "NW-V002"
+  ],
+  "rejects": {
+    "288": {
+      "sku": "NW-D004",
+      "rules": [
+        "duplicate_unresolved"
+      ]
+    },
+    "289": {
+      "sku": "NW-D004",
+      "rules": [
+        "duplicate_unresolved"
+      ]
+    },
+    "294": {
+      "sku": "",
+      "rules": [
+        "missing_sku"
+      ]
+    },
+    "295": {
+      "sku": "NW-R001",
+      "rules": [
+        "price_not_positive"
+      ]
+    },
+    "296": {
+      "sku": "NW-R002",
+      "rules": [
+        "price_not_positive"
+      ]
+    },
+    "297": {
+      "sku": "NW-R003",
+      "rules": [
+        "price_below_cost"
+      ]
+    },
+    "298": {
+      "sku": "NW-R004",
+      "rules": [
+        "missing_image_url"
+      ]
+    },
+    "299": {
+      "sku": "NW-R005",
+      "rules": [
+        "image_unusable"
+      ]
+    },
+    "300": {
+      "sku": "NW-R006",
+      "rules": [
+        "description_too_long"
+      ]
+    },
+    "301": {
+      "sku": "NW-R007",
+      "rules": [
+        "barcode_invalid"
+      ]
+    },
+    "302": {
+      "sku": "NW-R008",
+      "rules": [
+        "barcode_invalid"
+      ]
+    },
+    "303": {
+      "sku": "NW-R009",
+      "rules": [
+        "barcode_invalid"
+      ]
+    },
+    "304": {
+      "sku": "NW-R010",
+      "rules": [
+        "missing_title"
+      ]
+    },
+    "305": {
+      "sku": "NW-R011",
+      "rules": [
+        "price.format"
+      ]
+    },
+    "306": {
+      "sku": "NW-R012",
+      "rules": [
+        "price.format"
+      ]
+    }
+  },
+  "flags": {
+    "307": {
+      "sku": "NW-F001",
+      "rules": [
+        "weight.unit"
+      ]
+    },
+    "308": {
+      "sku": "NW-F002",
+      "rules": [
+        "weight.unit"
+      ]
+    },
+    "309": {
+      "sku": "NW-F003",
+      "rules": [
+        "dimensions.unit"
+      ]
+    },
+    "310": {
+      "sku": "NW-F004",
+      "rules": [
+        "dimensions.unit"
+      ]
+    },
+    "311": {
+      "sku": "NW-F005",
+      "rules": [
+        "stock_status.vocabulary"
+      ]
+    },
+    "312": {
+      "sku": "NW-F006",
+      "rules": [
+        "published.vocabulary"
+      ]
+    },
+    "313": {
+      "sku": "NW-F007",
+      "rules": [
+        "price.currency_mismatch"
+      ]
+    },
+    "314": {
+      "sku": "NW-F008",
+      "rules": [
+        "stock_inconsistent"
+      ]
+    },
+    "315": {
+      "sku": "NW-F009",
+      "rules": [
+        "quantity.format"
+      ]
+    },
+    "316": {
+      "sku": "NW-F010",
+      "rules": [
+        "compare_at_not_above_price"
+      ]
+    },
+    "317": {
+      "sku": "NW-F011",
+      "rules": [
+        "title_too_long"
+      ]
+    }
+  },
+  "dedupe": {
+    "NW-D001": {
+      "winner_line": 283,
+      "reason": "newest updated_at",
+      "dropped_lines": [
+        282
+      ]
+    },
+    "NW-D002": {
+      "winner_line": 284,
+      "reason": "identical",
+      "dropped_lines": [
+        285
+      ]
+    },
+    "NW-D003": {
+      "winner_line": 287,
+      "reason": "more complete",
+      "dropped_lines": [
+        286
+      ]
+    },
+    "NW-D004": {
+      "winner_line": null,
+      "reason": "unresolved tie",
+      "dropped_lines": [],
+      "rejected_lines": [
+        288,
+        289
+      ]
+    },
+    "NW-D005": {
+      "winner_line": 291,
+      "reason": "newest updated_at",
+      "dropped_lines": [
+        290
+      ],
+      "backfilled": [
+        "barcode",
+        "image_url",
+        "tags"
+      ]
+    },
+    "NW-D006": {
+      "winner_line": 293,
+      "reason": "more complete",
+      "dropped_lines": [
+        292
+      ]
+    }
+  },
+  "spot": [
+    {
+      "sku": "NW-1000",
+      "field": "title",
+      "value": "Brass Lantern"
+    },
+    {
+      "sku": "NW-1000",
+      "field": "vendor",
+      "value": "Harbourline Outfitters"
+    },
+    {
+      "sku": "NW-1000",
+      "field": "price",
+      "value": "1299.00"
+    },
+    {
+      "sku": "NW-1000",
+      "field": "weight_g",
+      "value": "2500"
+    },
+    {
+      "sku": "NW-1000",
+      "field": "length_mm",
+      "value": "304.8"
+    },
+    {
+      "sku": "NW-1000",
+      "field": "stock_status",
+      "value": "in_stock"
+    },
+    {
+      "sku": "NW-1000",
+      "field": "published",
+      "value": "true"
+    },
+    {
+      "sku": "NW-1000",
+      "field": "image_url",
+      "value": "https://cdn.example-supplier.test/img/nw-1000.jpg"
+    },
+    {
+      "sku": "NW-1003",
+      "field": "title",
+      "value": "Stiff Bristle Dry Bag"
+    },
+    {
+      "sku": "NW-1003",
+      "field": "vendor",
+      "value": "Kestrel & Co."
+    },
+    {
+      "sku": "NW-1003",
+      "field": "price",
+      "value": "49.99"
+    },
+    {
+      "sku": "NW-1003",
+      "field": "weight_g",
+      "value": "500"
+    },
+    {
+      "sku": "NW-1003",
+      "field": "length_mm",
+      "value": "300"
+    },
+    {
+      "sku": "NW-1003",
+      "field": "stock_status",
+      "value": "in_stock"
+    },
+    {
+      "sku": "NW-1003",
+      "field": "published",
+      "value": "true"
+    },
+    {
+      "sku": "NW-1003",
+      "field": "image_url",
+      "value": "https://cdn.example-supplier.test/img/nw-1003.jpg"
+    },
+    {
+      "sku": "NW-1006",
+      "field": "title",
+      "value": "Cloth Bound Chisel"
+    },
+    {
+      "sku": "NW-1006",
+      "field": "vendor",
+      "value": "Marrow Tool Works"
+    },
+    {
+      "sku": "NW-1006",
+      "field": "price",
+      "value": "18.50"
+    },
+    {
+      "sku": "NW-1006",
+      "field": "weight_g",
+      "value": "499"
+    },
+    {
+      "sku": "NW-1006",
+      "field": "length_mm",
+      "value": "300"
+    },
+    {
+      "sku": "NW-1006",
+      "field": "stock_status",
+      "value": "out_of_stock"
+    },
+    {
+      "sku": "NW-1006",
+      "field": "published",
+      "value": "true"
+    },
+    {
+      "sku": "NW-1006",
+      "field": "image_url",
+      "value": "https://cdn.example-supplier.test/img/nw-1006.jpg"
+    },
+    {
+      "sku": "NW-1009",
+      "field": "title",
+      "value": "Manual 12v Mixing Bowl"
+    },
+    {
+      "sku": "NW-1009",
+      "field": "vendor",
+      "value": "Pennyroyal Home"
+    },
+    {
+      "sku": "NW-1009",
+      "field": "price",
+      "value": "45.50"
+    },
+    {
+      "sku": "NW-1009",
+      "field": "weight_g",
+      "value": "340.2"
+    },
+    {
+      "sku": "NW-1009",
+      "field": "length_mm",
+      "value": "1200"
+    },
+    {
+      "sku": "NW-1009",
+      "field": "stock_status",
+      "value": "backorder"
+    },
+    {
+      "sku": "NW-1009",
+      "field": "published",
+      "value": "false"
+    },
+    {
+      "sku": "NW-1009",
+      "field": "image_url",
+      "value": "https://cdn.example-supplier.test/img/nw-1009.jpg"
+    },
+    {
+      "sku": "NW-1012",
+      "field": "title",
+      "value": "Stoneware Notebook"
+    },
+    {
+      "sku": "NW-1012",
+      "field": "vendor",
+      "value": "Saltmarsh Supply"
+    },
+    {
+      "sku": "NW-1012",
+      "field": "price",
+      "value": "7.25"
+    },
+    {
+      "sku": "NW-1012",
+      "field": "weight_g",
+      "value": "750"
+    },
+    {
+      "sku": "NW-1012",
+      "field": "length_mm",
+      "value": "304.8"
+    },
+    {
+      "sku": "NW-1012",
+      "field": "stock_status",
+      "value": "preorder"
+    },
+    {
+      "sku": "NW-1012",
+      "field": "published",
+      "value": "false"
+    },
+    {
+      "sku": "NW-1012",
+      "field": "image_url",
+      "value": "https://cdn.example-supplier.test/img/nw-1012.jpg"
+    },
+    {
+      "sku": "NW-1015",
+      "field": "title",
+      "value": "Waxed Canvas Deck Brush"
+    },
+    {
+      "sku": "NW-1015",
+      "field": "vendor",
+      "value": "Vellum Paper Goods"
+    },
+    {
+      "sku": "NW-1015",
+      "field": "price",
+      "value": "1299.00"
+    },
+    {
+      "sku": "NW-1015",
+      "field": "weight_g",
+      "value": "340"
+    },
+    {
+      "sku": "NW-1015",
+      "field": "length_mm",
+      "value": "300"
+    },
+    {
+      "sku": "NW-1015",
+      "field": "stock_status",
+      "value": "discontinued"
+    },
+    {
+      "sku": "NW-1015",
+      "field": "published",
+      "value": "true"
+    },
+    {
+      "sku": "NW-1015",
+      "field": "image_url",
+      "value": "https://cdn.example-supplier.test/img/nw-1015.jpg"
+    },
+    {
+      "sku": "NW-1018",
+      "field": "title",
+      "value": "Braided 9m Rope Ladder"
+    },
+    {
+      "sku": "NW-1018",
+      "field": "vendor",
+      "value": "Harbourline Outfitters"
+    },
+    {
+      "sku": "NW-1018",
+      "field": "price",
+      "value": "1299.00"
+    },
+    {
+      "sku": "NW-1018",
+      "field": "weight_g",
+      "value": "2500"
+    },
+    {
+      "sku": "NW-1018",
+      "field": "length_mm",
+      "value": "300"
+    },
+    {
+      "sku": "NW-1018",
+      "field": "stock_status",
+      "value": "in_stock"
+    },
+    {
+      "sku": "NW-1018",
+      "field": "published",
+      "value": "true"
+    },
+    {
+      "sku": "NW-1018",
+      "field": "image_url",
+      "value": "https://cdn.example-supplier.test/img/nw-1018.jpg"
+    },
+    {
+      "sku": "NW-1021",
+      "field": "title",
+      "value": "Cylindrical Tote"
+    },
+    {
+      "sku": "NW-1021",
+      "field": "vendor",
+      "value": "Kestrel & Co."
+    },
+    {
+      "sku": "NW-1021",
+      "field": "price",
+      "value": "49.99"
+    },
+    {
+      "sku": "NW-1021",
+      "field": "weight_g",
+      "value": "500"
+    },
+    {
+      "sku": "NW-1021",
+      "field": "length_mm",
+      "value": "1200"
+    },
+    {
+      "sku": "NW-1021",
+      "field": "stock_status",
+      "value": "in_stock"
+    },
+    {
+      "sku": "NW-1021",
+      "field": "published",
+      "value": "true"
+    },
+    {
+      "sku": "NW-1021",
+      "field": "image_url",
+      "value": "https://cdn.example-supplier.test/img/nw-1021.jpg"
+    },
+    {
+      "sku": "NW-1024",
+      "field": "title",
+      "value": "Four Pocket Hand Plane"
+    },
+    {
+      "sku": "NW-1024",
+      "field": "vendor",
+      "value": "Marrow Tool Works"
+    },
+    {
+      "sku": "NW-1024",
+      "field": "price",
+      "value": "18.50"
+    },
+    {
+      "sku": "NW-1024",
+      "field": "weight_g",
+      "value": "499"
+    },
+    {
+      "sku": "NW-1024",
+      "field": "length_mm",
+      "value": "304.8"
+    },
+    {
+      "sku": "NW-1024",
+      "field": "stock_status",
+      "value": "out_of_stock"
+    },
+    {
+      "sku": "NW-1024",
+      "field": "published",
+      "value": "false"
+    },
+    {
+      "sku": "NW-1024",
+      "field": "image_url",
+      "value": "https://cdn.example-supplier.test/img/nw-1024.jpg"
+    },
+    {
+      "sku": "NW-1027",
+      "field": "title",
+      "value": "Gridded Tea Caddy"
+    },
+    {
+      "sku": "NW-1027",
+      "field": "vendor",
+      "value": "Pennyroyal Home"
+    },
+    {
+      "sku": "NW-1027",
+      "field": "price",
+      "value": "45.50"
+    },
+    {
+      "sku": "NW-1027",
+      "field": "weight_g",
+      "value": "340.2"
+    },
+    {
+      "sku": "NW-1027",
+      "field": "length_mm",
+      "value": "300"
+    },
+    {
+      "sku": "NW-1027",
+      "field": "stock_status",
+      "value": "backorder"
+    },
+    {
+      "sku": "NW-1027",
+      "field": "published",
+      "value": "false"
+    },
+    {
+      "sku": "NW-1027",
+      "field": "image_url",
+      "value": "https://cdn.example-supplier.test/img/nw-1027.jpg"
+    },
+    {
+      "sku": "NW-1030",
+      "field": "title",
+      "value": "Oak Handled Ledger"
+    },
+    {
+      "sku": "NW-1030",
+      "field": "vendor",
+      "value": "Saltmarsh Supply"
+    },
+    {
+      "sku": "NW-1030",
+      "field": "price",
+      "value": "7.25"
+    },
+    {
+      "sku": "NW-1030",
+      "field": "weight_g",
+      "value": "750"
+    },
+    {
+      "sku": "NW-1030",
+      "field": "length_mm",
+      "value": "300"
+    },
+    {
+      "sku": "NW-1030",
+      "field": "stock_status",
+      "value": "preorder"
+    },
+    {
+      "sku": "NW-1030",
+      "field": "published",
+      "value": "true"
+    },
+    {
+      "sku": "NW-1030",
+      "field": "image_url",
+      "value": "https://cdn.example-supplier.test/img/nw-1030.jpg"
+    },
+    {
+      "sku": "NW-1033",
+      "field": "title",
+      "value": "Heavyweight Fender"
+    },
+    {
+      "sku": "NW-1033",
+      "field": "vendor",
+      "value": "Vellum Paper Goods"
+    },
+    {
+      "sku": "NW-1033",
+      "field": "price",
+      "value": "1299.00"
+    },
+    {
+      "sku": "NW-1033",
+      "field": "weight_g",
+      "value": "340"
+    },
+    {
+      "sku": "NW-1033",
+      "field": "length_mm",
+      "value": "1200"
+    },
+    {
+      "sku": "NW-1033",
+      "field": "stock_status",
+      "value": "discontinued"
+    },
+    {
+      "sku": "NW-1033",
+      "field": "published",
+      "value": "true"
+    },
+    {
+      "sku": "NW-1033",
+      "field": "image_url",
+      "value": "https://cdn.example-supplier.test/img/nw-1033.jpg"
+    },
+    {
+      "sku": "NW-D001",
+      "field": "price",
+      "value": "38.50"
+    },
+    {
+      "sku": "NW-D005",
+      "field": "price",
+      "value": "16.00"
+    },
+    {
+      "sku": "NW-D005",
+      "field": "barcode",
+      "value": "5060007166692"
+    },
+    {
+      "sku": "NW-D005",
+      "field": "image_url",
+      "value": "https://cdn.example-supplier.test/img/nw-d005.jpg"
+    },
+    {
+      "sku": "NW-F007",
+      "field": "price",
+      "value": "89.00"
+    },
+    {
+      "sku": "NW-F007",
+      "field": "currency",
+      "value": "EUR"
+    }
+  ],
+  "unmapped_headers": [
+    "Supplier Ref"
+  ],
+  "unmapped_vendors": [
+    "Tidepool Goods",
+    "Zephyr Works"
+  ]
+}

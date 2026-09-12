@@ -1,0 +1,24 @@
+[project]
+name = "feed-clean"
+version = "0.1.0"
+description = "Dedupe, normalise, validate and report on a dirty product feed CSV."
+requires-python = ">=3.12"
+# No runtime dependencies, deliberately. Everything this does is csv, re,
+# decimal and html from the standard library, so `make run` installs nothing
+# and there is no wheel to go stale between now and the next time you need it.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.3",
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["feed_clean"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

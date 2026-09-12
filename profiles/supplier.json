@@ -1,0 +1,66 @@
+{
+  "name": "Northwind Trading Co. weekly export (bundled fixture)",
+  "currency": "USD",
+
+  "columns": {
+    "sku": ["Variant SKU", "SKU", "Item Number", "Item #"],
+    "handle": ["Handle", "URL Key"],
+    "title": ["Title", "Product Name", "Name"],
+    "vendor": ["Vendor", "Brand", "Manufacturer"],
+    "product_type": ["Product Type", "Type", "Category"],
+    "price": ["Variant Price", "Price", "Retail Price", "RRP"],
+    "cost": ["Cost per item", "Cost", "Unit Cost", "Wholesale"],
+    "compare_at": ["Variant Compare At Price", "Compare At Price", "Was Price"],
+    "barcode": ["Variant Barcode", "Barcode", "GTIN", "EAN", "UPC"],
+    "weight": ["Weight", "Variant Weight", "Shipping Weight"],
+    "weight_unit": ["Weight Unit", "Variant Weight Unit", "UOM"],
+    "dimensions": ["Dimensions", "Package Dimensions", "Size (LxWxH)"],
+    "quantity": ["Variant Inventory Qty", "Qty", "Quantity", "Stock Level"],
+    "stock_status": ["Stock Status", "Availability", "Inventory Status"],
+    "published": ["Published", "Active", "Visible"],
+    "taxable": ["Variant Taxable", "Taxable", "VAT"],
+    "image_url": ["Image Src", "Image URL", "Main Image"],
+    "description": ["Body (HTML)", "Description", "Long Description"],
+    "tags": ["Tags", "Keywords"],
+    "updated_at": ["Updated At", "Last Modified", "Modified"]
+  },
+
+  "vendors": {
+    "Harbourline Outfitters": ["harbourline", "harbour line outfitters", "harbourline outfitters inc"],
+    "Kestrel & Co.": ["kestrel and co", "kestrel co", "kestrel & co"],
+    "Marrow Tool Works": ["marrow tools", "marrow toolworks", "marrow tool works ltd"],
+    "Pennyroyal Home": ["pennyroyal", "pennyroyal home goods"],
+    "Saltmarsh Supply": ["saltmarsh", "salt marsh supply", "saltmarsh supply co"],
+    "Vellum Paper Goods": ["vellum", "vellum paper", "vellum papergoods"]
+  },
+
+  "stock_status": {
+    "in_stock": ["in stock", "instock", "available", "yes", "y", "1", "active"],
+    "out_of_stock": ["out of stock", "outofstock", "oos", "sold out", "no", "n", "0"],
+    "backorder": ["back order", "backorder", "back-order", "on backorder"],
+    "preorder": ["pre order", "preorder", "pre-order", "coming soon"],
+    "discontinued": ["discontinued", "eol", "end of life", "delisted"]
+  },
+
+  "booleans": {
+    "true": ["true", "yes", "y", "1", "t", "active", "enabled"],
+    "false": ["false", "no", "n", "0", "f", "inactive", "disabled"]
+  },
+
+  "acronyms": [
+    "USB", "USB-C", "LED", "UV", "PVC", "HDPE", "XL", "XXL", "IP67", "IPX4",
+    "BPA", "HDMI", "PTFE", "EVA", "ABS", "SPF", "FSC", "GSM", "II", "III"
+  ],
+
+  "minor_words": [
+    "a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "of",
+    "on", "or", "per", "the", "to", "with"
+  ],
+
+  "required": ["sku", "title", "price", "image_url"],
+
+  "limits": {
+    "description_max": 5000,
+    "title_max": 150
+  }
+}

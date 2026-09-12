@@ -1,0 +1,11 @@
+# Which recording recipe demo/record.sh uses. One of the names in demo/lib/.
+#
+# vhs        — this piece. The deliverable is a command and two CSV files, so
+#              the clip is a terminal: VHS renders text natively instead of
+#              photographing it, which is what keeps a table readable at GIF
+#              size. See demo/demo.tape.
+#
+# playwright — the browser recipe, inherited from portfolio piece #2 and still
+#              here so piece #4 can choose it without reinventing it. It needs
+#              a demo/scene.py, which this piece does not have.
+vhs
