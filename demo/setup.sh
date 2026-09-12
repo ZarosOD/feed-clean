@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Project-specific preparation, run by demo/record.sh before the recipe.
+# Project-specific preparation, run by every `make` target and by
+# demo/record.sh before the recipe.
 # EDIT THIS FILE for a new portfolio piece — but only these few lines: the
 # venv/uv/ensurepip ladder is generic and lives in lib/python-venv.sh.
 #

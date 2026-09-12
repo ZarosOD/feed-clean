@@ -90,7 +90,7 @@ machine. Most of that is fetching a pinned `uv`. On a machine with no Python
 3.12 at all, uv downloads an interpreter too and it is closer to a minute.
 
 ```bash
-make test     # 223 tests; 11.3s from the same dead clone
+make test     # 223 tests; 9.9s from the same dead clone
 make strict   # the same run, but exit 2 if any row was rejected
 make demo     # regenerate the clip above, headless
 ```
@@ -106,7 +106,7 @@ toolchain, and it says so in its name.
 `make demo` is the slow one, because VHS renders a terminal by driving a
 headless Chromium it has to download. Same clean-machine conditions:
 **83 seconds** from nothing — no vhs, no ttyd, no ffmpeg, no browser — and
-**56 seconds** to re-record once the toolchain is there. It leaves 231 MB in
+**55 seconds** to re-record once the toolchain is there. It leaves 231 MB in
 `demo/.toolchain/` and about 540 MB in `~/.cache`, none of it installed
 system-wide. `make clean` removes the first.
 
@@ -439,9 +439,9 @@ regression in `test_parse.py` was found.
 make test          # or: .venv/bin/python -m pytest -q
 ```
 
-223 tests, no network, 3.9 seconds. Nearly all of that is the last row of the
-table below: nine tests that run `make` in a throwaway copy of the repo,
-because the bug they cover only exists at that level.
+223 tests, no network, 4.5 seconds. Most of that is the last row of the table
+below: nine tests that run `make` in a throwaway copy of the repo, because the
+bug they cover only exists at that level. The other 214 take under a second.
 
 | File | Covers |
 | --- | --- |
