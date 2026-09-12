@@ -90,7 +90,7 @@ machine. Most of that is fetching a pinned `uv`. On a machine with no Python
 3.12 at all, uv downloads an interpreter too and it is closer to a minute.
 
 ```bash
-make test     # 223 tests; 9.9s from the same dead clone
+make test     # 228 tests; 10.3s from the same dead clone
 make strict   # the same run, but exit 2 if any row was rejected
 make demo     # regenerate the clip above, headless
 ```
@@ -105,8 +105,8 @@ toolchain, and it says so in its name.
 
 `make demo` is the slow one, because VHS renders a terminal by driving a
 headless Chromium it has to download. Same clean-machine conditions:
-**83 seconds** from nothing — no vhs, no ttyd, no ffmpeg, no browser — and
-**55 seconds** to re-record once the toolchain is there. It leaves 231 MB in
+**about 95 seconds** from nothing — no vhs, no ttyd, no ffmpeg, no browser — and
+**about 65 seconds** to re-record once the toolchain is there. It leaves 231 MB in
 `demo/.toolchain/` and about 540 MB in `~/.cache`, none of it installed
 system-wide. `make clean` removes the first.
 
@@ -307,7 +307,8 @@ log.
 
 ## Pointing it at your own feed
 
-One JSON file, no code. `profiles/supplier.json`:
+One JSON file, no code. `profiles/supplier.json`, abridged — the real one
+carries more aliases per column and a longer `acronyms` list:
 
 ```json
 {
@@ -429,7 +430,7 @@ regression in `test_parse.py` was found.
 - **No image fetching.** It checks that an image URL is an absolute http(s)
   URL. It does not check that the image exists, is the right size, or is not a
   placeholder.
-- Tested against the bundled fixture and 223 tests. On a real feed the
+- Tested against the bundled fixture and 228 tests. On a real feed the
   honest expectation is that most rows come out clean and the rest get flagged
   or rejected rather than silently wrong. That is what the flag is for.
 
@@ -439,9 +440,10 @@ regression in `test_parse.py` was found.
 make test          # or: .venv/bin/python -m pytest -q
 ```
 
-223 tests, no network, 4.5 seconds. Most of that is the last row of the table
-below: nine tests that run `make` in a throwaway copy of the repo, because the
-bug they cover only exists at that level. The other 214 take under a second.
+228 tests, no network, 4.5 seconds. Most of that is the `test_make_targets.py`
+row of the table below: nine tests that run `make` in a throwaway copy of the
+repo, because the bug they cover only exists at that level. The other 219 take
+under a second.
 
 | File | Covers |
 | --- | --- |
@@ -453,6 +455,7 @@ bug they cover only exists at that level. The other 214 take under a second.
 | `test_report.py` | The shape of the four files and the wording of the summary. |
 | `test_cli.py` | End to end over the bundled feed, asserting against `tests/expected.json`. |
 | `test_demo_preview.py`, `test_demo_fetch.py` | The shared recording helpers in `demo/lib/`: the table renderer and the download retry ladder. |
+| `test_demo_outputs.py` | That the recording writes both the GIF and the MP4, including the case where `vhs` exits `0` having skipped one of them. |
 | `test_make_targets.py` | Which `make` targets may touch `out/`. `make run` writes it; `test`, `strict` and `fixtures` must leave whatever is there alone; only the recording asks `setup.sh` to delete it. |
 
 ## Recording the demo
