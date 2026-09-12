@@ -39,6 +39,19 @@ export PLAYWRIGHT_BROWSERS_PATH="$TOOLCHAIN_DIR/browsers"
 GIF_WIDTH="${GIF_WIDTH:-880}"
 GIF_FPS="${GIF_FPS:-5}"
 
+# Chromium records the page as lossy VP8, so a flat CSS colour does not arrive
+# flat. Measured inside one 56px #cdd3e4 thumbnail: 6-9 distinct values, and the
+# minority ones flip every few frames. That costs twice over. The flipped pixels
+# straddle a palette boundary, so paletteuse splits a flat square across two
+# entries and the thumbnails come out visibly striped; and because those pixels
+# change every frame, the GIF's inter-frame transparency cannot drop them, so
+# every frame re-sends them. Snapping each channel to a step of 8 puts the
+# spread back on one value and both costs go away — same scene, ~30% smaller,
+# and the squares are flat again. 8 is the knee: 4 recovers only a third of it,
+# 12 starts to band. Set GIF_QUANT=1 to turn it off for a clip of real
+# photography, where the noise floor is the picture.
+GIF_QUANT="${GIF_QUANT:-8}"
+
 pw_log() { printf '  %s\n' "$*" >&2; }
 
 pw_python() {
@@ -107,13 +120,28 @@ recipe_bootstrap() {
 # a flat UI quantised naively gets visible banding across every card. dither is
 # off for the same reason it is usually on — dithering a flat UI adds noise
 # that costs a megabyte and buys nothing.
+#
+# stats_mode=full, not diff. diff weights the palette toward pixels that change
+# between frames, which on a scene of long static holds means weighting it
+# toward the VP8 noise GIF_QUANT exists to remove. full keeps the flat UI
+# colours truer: measured against the source, the worst thumbnail lands 5 away
+# under full and 8 under diff.
+#
+# The quantiser only goes in front of the GIF. x264 spends a few bits on the
+# same noise and shrugs — measured 3% on the mp4, against 30% on the gif — so
+# the mp4 keeps the untouched picture.
 encode_clip() {
   local source="$1" out_dir="$2"
   local filters="fps=${GIF_FPS},scale=${GIF_WIDTH}:-2:flags=lanczos"
 
+  if [ "$GIF_QUANT" -gt 1 ]; then
+    local snap="trunc(val/${GIF_QUANT})*${GIF_QUANT}"
+    filters="${filters},lutrgb=r=${snap}:g=${snap}:b=${snap}"
+  fi
+
   pw_log "encoding gif"
   ffmpeg -nostdin -loglevel error -y -i "$source" \
-    -vf "${filters},split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=none" \
+    -vf "${filters},split[a][b];[a]palettegen=max_colors=128:stats_mode=full[p];[b][p]paletteuse=dither=none" \
     -loop 0 "$out_dir/demo.gif"
 
   pw_log "encoding mp4"
