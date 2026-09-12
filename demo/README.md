@@ -67,7 +67,14 @@ The history explains why the files are shaped the way they are:
 | Good at | Crisp text at small sizes; small files (this repo: 513 KB) | Anything with a UI, a page, or a before/after to point at |
 | Bad at | Anything that is not text in a terminal | Files are several times bigger |
 | Timing | Declarative `Sleep 4s` | `page.wait_for_timeout(4000)` — same idea, in Python |
-| Output | GIF | GIF **and** MP4, from one recording |
+| Output | GIF **and** MP4, from one recording | GIF **and** MP4, from one recording |
+
+Both recipes write both formats because the two are for different places. The
+**GIF** is the README thumbnail: it animates inline on GitHub and needs no
+player. The **MP4** is the portfolio cover, because Upwork's gallery renders an
+uploaded GIF as a single static first frame — a GIF there is a screenshot with
+extra bytes. Neither is generated from the other; they are two encodes of the
+same captured frames, so they cannot drift apart.
 
 **Pick VHS when the deliverable is a command.** This piece qualifies: what the
 client cares about is a table of dirty rows, a table of clean rows and a table

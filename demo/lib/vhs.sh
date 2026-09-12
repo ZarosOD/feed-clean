@@ -77,7 +77,13 @@ recipe_record() {
 
   # -o rather than a fixed `Output` line in the tape, so record.sh decides
   # where the clip goes and a repo can hold clips from both recipes at once.
-  play() ( cd "$REPO_ROOT" && vhs -o "$out_dir/demo.gif" "$tape" )
+  #
+  # Two -o flags, one recording: vhs encodes the same captured frames to each
+  # target. The GIF is the README thumbnail; the MP4 is the portfolio cover,
+  # because Upwork's gallery renders an uploaded GIF as a single static frame.
+  # Both come from the same run, so they can never disagree about what the
+  # demo showed.
+  play() ( cd "$REPO_ROOT" && vhs -o "$out_dir/demo.gif" -o "$out_dir/demo.mp4" "$tape" )
 
   # The first run on a fresh machine is also what downloads headless Chromium.
   # If that run fails, vendor whatever libraries it turned out to need and
@@ -87,5 +93,18 @@ recipe_record() {
     vendor_chromium_libs || true
     play
   fi
+
+  # vhs exits 0 having written nothing on some Linux boxes (see VHS_VERSION
+  # above), and it does that per output target. Check each one rather than
+  # trusting the exit code, or a missing MP4 ships quietly.
+  local missing=0
+  for target in "$out_dir/demo.gif" "$out_dir/demo.mp4"; do
+    if [ ! -s "$target" ]; then
+      vhs_log "vhs exited 0 but wrote no ${target##*/}"
+      missing=1
+    fi
+  done
+  [ "$missing" -eq 0 ] || return 1
+
   RECIPE_CLIP="$out_dir/demo.gif"
 }
