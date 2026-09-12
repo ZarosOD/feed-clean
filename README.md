@@ -84,13 +84,13 @@ git clone <this repo> && cd feed-clean
 make run
 ```
 
-**5.5 seconds** from a dead clone to real output, measured with an empty `HOME`
+**5.9 seconds** from a dead clone to real output, measured with an empty `HOME`
 and `PATH=/usr/bin:/bin` — no `uv`, no virtualenv, no caches, nothing on the
 machine. Most of that is fetching a pinned `uv`. On a machine with no Python
 3.12 at all, uv downloads an interpreter too and it is closer to a minute.
 
 ```bash
-make test     # 200 tests; 7.1s from the same dead clone
+make test     # 214 tests; 7.3s from the same dead clone
 make strict   # the same run, but exit 2 if any row was rejected
 make demo     # regenerate the clip above, headless
 ```
@@ -98,7 +98,7 @@ make demo     # regenerate the clip above, headless
 `make demo` is the slow one, because VHS renders a terminal by driving a
 headless Chromium it has to download. Same clean-machine conditions:
 **83 seconds** from nothing — no vhs, no ttyd, no ffmpeg, no browser — and
-**53 seconds** to re-record once the toolchain is there. It leaves 231 MB in
+**56 seconds** to re-record once the toolchain is there. It leaves 231 MB in
 `demo/.toolchain/` and about 540 MB in `~/.cache`, none of it installed
 system-wide. `make clean` removes the first.
 
@@ -431,7 +431,7 @@ regression in `test_parse.py` was found.
 make test          # or: .venv/bin/python -m pytest -q
 ```
 
-200 tests, no network, under a second.
+214 tests, no network, under a second.
 
 | File | Covers |
 | --- | --- |

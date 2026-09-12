@@ -12,11 +12,25 @@ the recording needs is fetched into `demo/.toolchain/` and nothing is installed
 system-wide. `record.sh` fails loudly if the clip is missing, empty, or longer
 than 35 seconds.
 
-This is the **third** piece to use this pipeline, and the first one that needed
-no changes to the shared half at all. `record.sh` and every file in `lib/` are
-byte-identical to the copies in the previous piece; the only files this piece
-wrote are `recipe`, `setup.sh` and `demo.tape`. That was the point of the
-split, so it is worth saying plainly that it held.
+This is the **third** piece to use this pipeline. It wrote the three files a
+piece is supposed to write — `recipe`, `setup.sh`, `demo.tape` — and it also
+changed the shared half twice. Both changes are described below, and neither
+was forked into this piece: the rule is that editing `lib/` to make your own
+piece work means the split is wrong, so you fix the split and say so.
+
+- **`lib/fetch.sh` is new.** Mid-verification, GitHub's release CDN returned
+  HTTP 500 for one asset (ttyd) for about two minutes while every other asset
+  on the same host served fine. `make demo` died on a raw `curl: (22)`. A repo
+  whose whole promise is "one command, from nothing" cannot have a two-minute
+  CDN blip as a failure mode, so every download in `lib/` now goes through one
+  retry helper. Nothing about that is specific to this piece.
+- **`lib/preview.py` gained `--wrap`.** Documented under *Writing a tape*
+  below. This piece is the first to put the helper on camera, which made it
+  the cheapest moment to change it: with one caller a change costs nothing,
+  with two it is a migration nobody wants to do.
+
+`record.sh`, `lib/python-venv.sh`, `lib/playwright.sh` and
+`lib/chromium-libs.sh` are byte-identical to the previous piece's copies.
 
 The history explains why the files are shaped the way they are:
 
@@ -28,7 +42,10 @@ The history explains why the files are shaped the way they are:
   (`lib/preview.py`).
 - **Piece #3** — this one — is the test of that. It is a terminal piece whose
   whole story is "dirty CSV in, clean CSV out", so it uses the VHS recipe and
-  leans on `lib/preview.py` for three of its four beats. Nothing had to move.
+  leans on `lib/preview.py` for three of its four beats. Nothing had to *move*
+  this time: the two shared-half changes above are a new helper and a new
+  option, not a per-piece file being promoted out of one. That is the split
+  working — the pressure landed on `lib/`, which is where it belongs.
 
 ## Which recipe
 
@@ -36,7 +53,7 @@ The history explains why the files are shaped the way they are:
 | --- | --- | --- |
 | Records | A terminal session | A real browser page |
 | You write | `demo.tape` — a script of keystrokes and pauses | `scene.py` — Playwright code |
-| Good at | Crisp text at small sizes; small files (this repo: 520 KB) | Anything with a UI, a page, or a before/after to point at |
+| Good at | Crisp text at small sizes; small files (this repo: 513 KB) | Anything with a UI, a page, or a before/after to point at |
 | Bad at | Anything that is not text in a terminal | Files are several times bigger |
 | Timing | Declarative `Sleep 4s` | `page.wait_for_timeout(4000)` — same idea, in Python |
 | Output | GIF | GIF **and** MP4, from one recording |
@@ -108,15 +125,38 @@ choice for one run; `DEMO_OUT_DIR=...` sends the clip somewhere else.
   Naming a column the file does not have is an error listing the ones it does,
   rather than a blank column that looks fine on camera. Tested in
   `tests/test_demo_preview.py`.
+- **Wrap a prose column instead of truncating it: `--wrap COL`.** A rejects
+  file's `reason` is a sentence, not a field, and a fixed-width cell cuts it
+  exactly where it stops being boilerplate and starts being the explanation.
+  This piece's last beat is the case for it:
+
+  ```bash
+  python demo/lib/preview.py out/rejects.csv line sku reject_rules reason \
+      --rows 3 --cell 62 --wrap reason
+  ```
+
+  The wrapped column takes as many lines as it needs at `--cell` width, the
+  other columns stay blank on the continuation lines, and `--rows` still counts
+  *records* rather than screen lines — so the footer does not claim to have
+  skipped rows it actually displayed. Budget roughly three screen lines per
+  record when you set `Height`.
+- **Two rows that differ in the file must not render as the same line.** The
+  reason `--wrap` exists at all is that the two unresolved-duplicate rows came
+  out byte-identical on screen while differing in the file — same class of lie
+  as a capped table pretending to be the whole file. Adding the `line` column
+  fixed the rest of it: it is what tells the tied rows apart, and it is what
+  someone hand-fixing the feed actually needs.
 - **Put the same rows on screen before and after.** Both preview beats here
   show `NW-1000` through `NW-1018` in the same column order, so the eye can
   compare cell to cell instead of taking the claim on trust. That is only
   possible because the tool preserves input order — worth knowing before you
   design the tape.
-- **Truncation decides your wording.** The unresolved-duplicate message was
-  rewritten to put the two conflicting prices in the first eighty characters,
-  because in a fixed-width column that is all anyone reads. The full sentence
-  is still in `out/rejects.csv`.
+- **Lead with the specifics anyway.** The unresolved-duplicate message puts the
+  two conflicting prices in its first eighty characters. `--wrap` means the
+  whole sentence now reaches the screen, so this is no longer load-bearing —
+  but a reject message is read in a hurry, in a terminal, by someone who is
+  already annoyed, and front-loading the specifics is right whether or not the
+  renderer would have cut them.
 - **Synthetic data only.** Every product, vendor, sku and barcode in the clip
   is invented. Check every frame before shipping.
 
@@ -127,6 +167,7 @@ root, versions pinned except where noted.
 
 | File | Fetches | Pin | Why pinned |
 | --- | --- | --- | --- |
+| `lib/fetch.sh` | nothing itself | — | Every download below goes through it: a few attempts, a widening gap, and a message that separates "the host is having a moment" from "the URL is wrong". Failure is fatal for vhs (no recording without it) and a fallback for uv (there is still `python3 -m venv`). |
 | `lib/uv.sh` | uv | 0.12.13 | Checksum-verified against the published `.sha256`. |
 | `lib/python-venv.sh` | nothing directly | — | The venv ladder. Calls `lib/uv.sh` when the machine has no uv. |
 | `lib/ffmpeg.sh` | ffmpeg, ffprobe | **current release, not pinned** | The static build publishes one URL for the newest version; there is no per-version URL to pin to. A system `ffmpeg` is used if present. |
