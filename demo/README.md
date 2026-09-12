@@ -218,5 +218,3 @@ guessing.
 - **The first run downloads a browser**, because that is how VHS renders a
   terminal. Measured numbers from a dead clone with an empty `HOME` and
   `PATH=/usr/bin:/bin` are in the top-level README.
-- **The clip is a GIF.** The VHS recipe produces one file; the Playwright
-  recipe is the one that also gives you an MP4 alongside it.
