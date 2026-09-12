@@ -38,10 +38,15 @@ piece work means the split is wrong, so you fix the split and say so.
   `tests/test_make_targets.py` in the repo root holds the line.
 
 `lib/python-venv.sh`, `lib/playwright.sh` and `lib/chromium-libs.sh` are
-byte-identical to the previous piece's copies. `record.sh` differs by the one
-line above, which is a change the previous pieces should take next time one of
-them is opened — their `setup.sh` files ignore an unknown argument, so the new
-`record.sh` works unchanged in both.
+byte-identical to the previous piece's copies, and `record.sh` now is too:
+piece #2 (`catalog-watch`) took the `--fresh` line and taught its `setup.sh`
+the flag, and piece #4 (`inbox-filer`) was started from this copy. `pdf-to-csv`
+is the pre-split generation and is a declared exception rather than a laggard.
+
+That sync was a day late and nothing noticed, because the drift check read only
+`demo/lib/` and `record.sh` sits one directory up. It reads all of `demo/` now
+(`tools/demo_lib_drift.py`), so the next copy that stops at three of four is a
+failing check rather than a diff somebody happens to run.
 
 The history explains why the files are shaped the way they are:
 
