@@ -128,6 +128,19 @@ def test_gives_up_non_zero_and_leaves_no_partial_file(tmp_path: Path) -> None:
     assert "5xx" in result.stderr and "404" in result.stderr
 
 
+def test_reports_the_real_curl_exit_code(tmp_path: Path) -> None:
+    """Regression: `$?` after a plain `fi` is the if-statement's status, not
+    curl's, so every failure printed as "curl 0" — discarding the one number
+    that says whether re-running would help."""
+    bin_dir = tmp_path / "bin"
+    make_curl(bin_dir, fail_times=99, code=7)
+
+    result = run_fetch(tmp_path, bin_dir, tmp_path / "asset.tar.gz", attempts=2)
+
+    assert "curl 7" in result.stderr
+    assert "curl 0" not in result.stderr
+
+
 def test_attempts_is_a_count_not_a_retry_count(tmp_path: Path) -> None:
     """FETCH_ATTEMPTS=1 means try once, not try once then retry once."""
     bin_dir = tmp_path / "bin"

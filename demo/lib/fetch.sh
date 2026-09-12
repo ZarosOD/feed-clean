@@ -38,10 +38,15 @@ fetch_url() {
   command -v curl >/dev/null 2>&1 || { fetch_log "curl is not installed"; return 1; }
 
   while :; do
+    # The `else` is load-bearing: after a plain `fi`, $? is the status of the
+    # if-statement (0 when no branch ran), not of curl, so capturing it there
+    # reports every failure as "curl 0" and throws away the one number that
+    # separates "the host is having a moment" from "the URL is wrong".
     if curl -fsSL --connect-timeout 20 --max-time 300 "$url" -o "$dest"; then
       return 0
+    else
+      code=$?
     fi
-    code=$?
     if [ "$attempt" -ge "$FETCH_ATTEMPTS" ]; then
       break
     fi
