@@ -14,7 +14,7 @@ than 35 seconds.
 
 This is the **third** piece to use this pipeline. It wrote the three files a
 piece is supposed to write — `recipe`, `setup.sh`, `demo.tape` — and it also
-changed the shared half twice. Both changes are described below, and neither
+changed the shared half three times. All three are described below, and none
 was forked into this piece: the rule is that editing `lib/` to make your own
 piece work means the split is wrong, so you fix the split and say so.
 
@@ -28,9 +28,20 @@ piece work means the split is wrong, so you fix the split and say so.
   below. This piece is the first to put the helper on camera, which made it
   the cheapest moment to change it: with one caller a change costs nothing,
   with two it is a migration nobody wants to do.
+- **`record.sh` now calls `setup.sh --fresh`.** This piece shipped with the
+  output wipe inside `setup.sh` itself, which every `make` target depends on,
+  so `make test` deleted the output of the last `make run` without a word.
+  Wanting an empty repo is the *recording's* requirement, not setup's, so the
+  flag is where that requirement now lives. Only `record.sh` passes it; what
+  "fresh" means stays in `setup.sh`, because only the piece knows which
+  directories it writes. A piece that has nothing to wipe can ignore the flag.
+  `tests/test_make_targets.py` in the repo root holds the line.
 
-`record.sh`, `lib/python-venv.sh`, `lib/playwright.sh` and
-`lib/chromium-libs.sh` are byte-identical to the previous piece's copies.
+`lib/python-venv.sh`, `lib/playwright.sh` and `lib/chromium-libs.sh` are
+byte-identical to the previous piece's copies. `record.sh` differs by the one
+line above, which is a change the previous pieces should take next time one of
+them is opened — their `setup.sh` files ignore an unknown argument, so the new
+`record.sh` works unchanged in both.
 
 The history explains why the files are shaped the way they are:
 
@@ -72,7 +83,7 @@ Copy the whole `demo/` folder. Then change **these files and nothing else**:
 | File | What to change |
 | --- | --- |
 | `recipe` | One word: `playwright` or `vhs`. |
-| `setup.sh` | Two lines in practice: the import names you pass `ensure_venv`, and whatever the piece needs regenerated before recording. A non-Python piece replaces the `ensure_venv` call with its own build. |
+| `setup.sh` | Two lines in practice: the import names you pass `ensure_venv`, and whatever the piece needs regenerated before recording. A non-Python piece replaces the `ensure_venv` call with its own build. Anything it deletes belongs under `--fresh` unless the piece itself owns it — every `make` target runs this file, so a wipe outside that flag is a wipe of the user's work. |
 | `demo.tape` | The VHS recipe's tape. Delete it if you chose Playwright. |
 | `scene.py` | The Playwright recipe's script. Not present in this piece; copy it from the previous one if you want the browser recipe. |
 
@@ -89,9 +100,9 @@ recipe_bootstrap          # fetch what it needs: no root, inside the repo
 recipe_record OUT_DIR     # leave a clip in OUT_DIR; set RECIPE_CLIP to it
 ```
 
-`record.sh` handles the rest: reading `demo/recipe`, running `setup.sh`,
-wiping the output directory, and checking the clip exists, is non-empty and is
-inside the time budget. `DEMO_RECIPE=<name> ./demo/record.sh` overrides the
+`record.sh` handles the rest: reading `demo/recipe`, running `setup.sh --fresh`,
+wiping the clip directory it is about to write, and checking the clip exists, is
+non-empty and is inside the time budget. `DEMO_RECIPE=<name> ./demo/record.sh` overrides the
 choice for one run; `DEMO_OUT_DIR=...` sends the clip somewhere else.
 
 ## Writing a tape (VHS)

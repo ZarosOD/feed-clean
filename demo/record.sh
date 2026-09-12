@@ -56,8 +56,15 @@ RECIPE_CLIP=""
 
 say() { printf '\033[1m==>\033[0m %s\n' "$*" >&2; }
 
+# --fresh is the recording's one extra demand on setup.sh: a scene that opens
+# on output from an earlier run is a lie about what the first command does.
+# What "fresh" means is the piece's business, because only setup.sh knows which
+# directories this project writes; record.sh only knows that it is recording.
+# Every other caller (every `make` target) runs setup.sh without it and keeps
+# its output. A piece with nothing to wipe can ignore the flag; a piece that
+# rejects unknown arguments, as this one does, must accept --fresh.
 say "preparing the project"
-"$DEMO_DIR/setup.sh"
+"$DEMO_DIR/setup.sh" --fresh
 
 # shellcheck source=/dev/null
 . "$RECIPE_LIB"
