@@ -94,7 +94,7 @@ again — this box has 3.12, so I have no measurement of that case and have not
 put a number on it.
 
 ```bash
-make test           # the same 304 tests: 51s in that clone, 56s from a cold one
+make test           # the same 333 tests: 72s warm, 78s from that dead clone
 make strict         # the same run, but exit 2 if any row was rejected
 make demo           # regenerate the clip above, headless
 make demo-terminal  # the same story recorded as a terminal session instead
@@ -470,7 +470,7 @@ regression in `test_parse.py` was found.
 - **No image fetching.** It checks that an image URL is an absolute http(s)
   URL. It does not check that the image exists, is the right size, or is not a
   placeholder.
-- Tested against the bundled fixture and 304 tests. On a real feed the
+- Tested against the bundled fixture and 333 tests. On a real feed the
   honest expectation is that most rows come out clean and the rest get flagged
   or rejected rather than silently wrong. That is what the flag is for.
 
@@ -480,10 +480,15 @@ regression in `test_parse.py` was found.
 make test          # or: .venv/bin/python -m pytest -q
 ```
 
-304 tests, no network, about 49 seconds. Roughly half of that is the
-`test_make_targets.py` row of the table below: nine tests that run `make` in a
-throwaway copy of the repo, because the bug they cover only exists at that
-level. Those nine take 23 seconds; the other 295 take 26.
+333 tests, no network, about 72 seconds. Two files are most of that. The nine
+in `test_make_targets.py` run `make` in a throwaway copy of the repo, because
+the bug they cover only exists at that level, and take 31 seconds between them;
+the other 324 take 42. Half of *those* 42 is `test_workbook.py`, which repacks
+`clean.xlsx` with both clocks moved to prove the bytes do not follow the clock.
+
+Two of the 333 skip in a dead clone — the `ffprobe` cross-check in
+`test_readme_clip.py`, which needs a toolchain `make demo` downloads. They are
+the suite's only skips and they are a cross-check, not a guard.
 
 | File | Covers |
 | --- | --- |
