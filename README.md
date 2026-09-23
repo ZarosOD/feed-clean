@@ -498,6 +498,7 @@ level. Those nine take 23 seconds; the other 295 take 26.
 | `test_demo_preview.py`, `test_demo_fetch.py` | The shared recording helpers in `demo/lib/`: the table renderer and the download retry ladder. |
 | `test_demo_sheet.py` | The shared spreadsheet renderer in `demo/lib/sheet.py`, which draws the clip's BEFORE and AFTER frames: that it refuses to render a file that is not on disk, that a filtered view keeps the source file's own column letters and row numbers, and that the command on screen is the one whose output is under it. |
 | `test_demo_outputs.py` | That the recording writes both the GIF and the MP4, including the case where `vhs` exits `0` having skipped one of them. |
+| `test_readme_clip.py` | The clip-length sentence in this README, read back off the committed `demo/out/demo.gif` and `demo/out/demo.mp4`. It parses the numbers out of README.md rather than restating them, so a re-record that moves the clip and leaves the prose behind fails here. The duration readers are stdlib, because a dead clone has no `ffprobe`, and they are pinned against hand-built mp4 and gif headers. |
 | `test_make_targets.py` | Which `make` targets may touch `out/`. `make run` writes it; `test`, `strict` and `fixtures` must leave whatever is there alone; only the recording asks `setup.sh` to delete it. |
 
 ## Recording the demo
@@ -508,6 +509,13 @@ documented in [demo/README.md](demo/README.md). This piece uses the browser one,
 because the clip ends on `out/clean.xlsx` open in a spreadsheet grid and only a
 browser renders one. The terminal telling is still here:
 `make demo-terminal` writes it to `demo/out-terminal/`.
+
+The clip is 18 s against a 35 s budget that `record.sh` enforces by reading the
+encoded file, so the guard is real rather than a note about not shipping a
+two-minute GIF. That sentence is itself checked:
+`tests/test_readme_clip.py` parses the two numbers out of this file and reads
+the duration back off the committed `demo/out/demo.gif` and `demo/out/demo.mp4`,
+so a re-record that moves the clip and leaves the README behind fails the suite.
 
 **The AFTER frame is the real file.** The scene runs `clean.py`, then opens the
 workbook that run wrote and reads it off disk. It is not a fixture, not a
