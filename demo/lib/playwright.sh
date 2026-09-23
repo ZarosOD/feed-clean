@@ -36,8 +36,8 @@ export PLAYWRIGHT_BROWSERS_PATH="$TOOLCHAIN_DIR/browsers"
 # is low on purpose — a scene like this is a few long holds and a couple of
 # cuts, so frames spent on "motion" are frames wasted. Raise GIF_FPS for a
 # piece whose clip actually moves.
-GIF_WIDTH="${GIF_WIDTH:-880}"
-GIF_FPS="${GIF_FPS:-5}"
+GIF_WIDTH="${GIF_WIDTH:-1000}"
+GIF_FPS="${GIF_FPS:-6}"
 
 # Chromium records the page as lossy VP8, so a flat CSS colour does not arrive
 # flat. Measured inside one 56px #cdd3e4 thumbnail: 6-9 distinct values, and the

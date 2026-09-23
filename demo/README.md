@@ -3,7 +3,7 @@
 One command regenerates a clip from scratch, headless, from a clean checkout:
 
 ```bash
-./demo/record.sh              # this piece: VHS, a terminal session
+./demo/record.sh              # this piece: Playwright, a rendered page
 ./demo/record.sh --clean      # throw the toolchain away and re-fetch it first
 ```
 
@@ -40,8 +40,9 @@ piece work means the split is wrong, so you fix the split and say so.
 `lib/python-venv.sh`, `lib/playwright.sh` and `lib/chromium-libs.sh` are
 byte-identical to the previous piece's copies, and `record.sh` now is too:
 piece #2 (`catalog-watch`) took the `--fresh` line and taught its `setup.sh`
-the flag, and piece #4 (`inbox-filer`) was started from this copy. `pdf-to-csv`
-is the pre-split generation and is a declared exception rather than a laggard.
+the flag, and piece #4 (`inbox-filer`) was started from this copy. `pdf-to-csv` was the
+pre-split generation and carried seven declared exceptions; THE-255 moved it
+onto this same lib so it could record a scene too, and deleted all seven.
 
 That sync was a day late and nothing noticed, because the drift check read only
 `demo/lib/` and `record.sh` sits one directory up. It reads all of `demo/` now
@@ -63,13 +64,59 @@ The history explains why the files are shaped the way they are:
   option, not a per-piece file being promoted out of one. That is the split
   working — the pressure landed on `lib/`, which is where it belongs.
 
+## The spreadsheet renderer, `lib/sheet.py`
+
+All four pieces end their clip on the file the run just wrote, open in a
+spreadsheet grid. That is one job, so it is one file — shared, byte-identical
+everywhere, and policed by `tools/demo_lib_drift.py` like the rest of `lib/`.
+What stays per-piece is `scene.py`: which files this piece opens, which of its
+columns are worth showing, and what the narration says.
+
+**It cannot render a table it was handed.** The only way in is
+`read_table(path)` or `read_dir(path)`, both of which open something real and
+raise if it is not there. `View` cannot be built without a `Table` and `Table`
+cannot be built without a file on disk. That is deliberate: a terminal ASCII
+table cannot be told apart from a mock-up, and a renderer that reads a fixture
+reproduces exactly that flaw with better borders.
+
+**A filtered view says it is filtered.** Showing six of twenty-one columns is
+fine and is normal — nobody wants twenty-one on screen. So the columns keep the
+letter they have in the source file (picking columns 1, 2, 4 and 9 renders as
+A, B, D, I, which is what hiding columns in Excel looks like), rows keep their
+real sheet row number so a filtered set reads 2, 3, 4, 287, 288 with the join
+marked, and the footer says how many of each are on screen out of how many are
+in the file.
+
+**The number format is honoured.** A price cell holding 1299 with a `0.00`
+format reads "1299.00" in Excel and "1299" if you only look at the value —
+while the CSV beside it says "1299.00". Rendering the value alone would put a
+difference on screen that does not exist in the file.
+
+**The command and its output come from one call.** `run_command` runs the
+argv, keeps the captured stdout with it, and `terminal_html` renders that one
+object — so the line on screen cannot drift from the output underneath it. The
+interpreter path is the one thing rewritten, to `python`, because
+`/home/somebody/repo/.venv/bin/python3.12` is machine-specific noise and not
+the thing being demonstrated.
+
+Covered by `tests/test_demo_sheet.py`, which is byte-identical in all four
+repos for the same reason the module is.
+
 ## Which recipe
+
+**All four pieces use Playwright today**, and the reason is the grid
+above: a spreadsheet frame is a rendered page, and the terminal recipe
+cannot draw one. This piece records a browser because its deliverable is a
+spreadsheet: the clip closes on `out/clean.xlsx`, the Clean sheet and then the
+Rejects sheet. The VHS sibling is still live in every
+repo — `make demo-terminal` — because the choice is the point of
+`demo/recipe`, and a recipe nobody can run is a recipe that has rotted.
 
 | | **VHS** (`lib/vhs.sh`) | **Playwright** (`lib/playwright.sh`) |
 | --- | --- | --- |
 | Records | A terminal session | A real browser page |
 | You write | `demo.tape` — a script of keystrokes and pauses | `scene.py` — Playwright code |
-| Good at | Crisp text at small sizes; small files (this repo: 513 KB) | Anything with a UI, a page, or a before/after to point at |
+| Good at | Crisp text at small sizes; smaller files | Anything with a UI, a page, or a before/after to point at |
 | Bad at | Anything that is not text in a terminal | Files are several times bigger |
 | Timing | Declarative `Sleep 4s` | `page.wait_for_timeout(4000)` — same idea, in Python |
 | Output | GIF **and** MP4, from one recording | GIF **and** MP4, from one recording |
@@ -81,13 +128,6 @@ uploaded GIF as a single static first frame — a GIF there is a screenshot with
 extra bytes. Neither is generated from the other; they are two encodes of the
 same captured frames, so they cannot drift apart.
 
-**Pick VHS when the deliverable is a command.** This piece qualifies: what the
-client cares about is a table of dirty rows, a table of clean rows and a table
-of rejected rows, and VHS renders text natively rather than photographing it.
-Both recipes are live in the repo so the next piece can choose rather than
-reinvent — this one simply has no `scene.py`, which is why `demo/recipe` says
-`vhs`.
-
 ## Copying this into another piece
 
 Copy the whole `demo/` folder. Then change **these files and nothing else**:
@@ -96,8 +136,8 @@ Copy the whole `demo/` folder. Then change **these files and nothing else**:
 | --- | --- |
 | `recipe` | One word: `playwright` or `vhs`. |
 | `setup.sh` | Two lines in practice: the import names you pass `ensure_venv`, and whatever the piece needs regenerated before recording. A non-Python piece replaces the `ensure_venv` call with its own build. Anything it deletes belongs under `--fresh` unless the piece itself owns it — every `make` target runs this file, so a wipe outside that flag is a wipe of the user's work. |
-| `demo.tape` | The VHS recipe's tape. Delete it if you chose Playwright. |
-| `scene.py` | The Playwright recipe's script. Not present in this piece; copy it from the previous one if you want the browser recipe. |
+| `demo.tape` | The VHS recipe's tape. Delete it if you only want the browser one. |
+| `scene.py` | The Playwright recipe's script: which files to open, which columns to show, what the narration says. The rendering is `lib/sheet.py` and is not yours to edit. |
 
 Leave `record.sh` and everything in `lib/` alone. If you find yourself editing
 one of those to make your piece work, the split is wrong — fix the split, do
@@ -195,7 +235,7 @@ root, versions pinned except where noted.
 | `lib/python-venv.sh` | nothing directly | — | The venv ladder. Calls `lib/uv.sh` when the machine has no uv. |
 | `lib/ffmpeg.sh` | ffmpeg, ffprobe | 7.0.2 | Checksum-verified against a constant in the file, so a swapped tarball fails instead of quietly changing what the clip looks like. A system `ffmpeg` is used only if it reports the same version. |
 | `lib/vhs.sh` | vhs, ttyd | 0.10.0, 1.7.7 | **vhs deliberately**: 0.12.x starts Chromium, captures every frame, then exits 0 having written no file at all on some Linux hosts. 0.10.0 encodes reliably. |
-| `lib/playwright.sh` | the `playwright` wheel + Chromium | 1.47.0 | Unused by this piece; kept so the next one can choose it. |
+| `lib/playwright.sh` | the `playwright` wheel + Chromium | 1.47.0 | The recipe this piece records with. Playwright for *Python*, not Node: the wheel ships its own driver, so a machine with no Node can still regenerate the clip. |
 | `lib/chromium-libs.sh` | the shared objects Chromium links against | — | See below. |
 
 `lib/uv.sh` applies the pinning rule to the *project's* toolchain, because a

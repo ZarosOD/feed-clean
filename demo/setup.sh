@@ -41,7 +41,7 @@ done
 # test runner and the package itself.
 # shellcheck source=lib/python-venv.sh
 . "$DEMO_DIR/lib/python-venv.sh"
-ensure_venv .venv "feed_clean pytest"
+ensure_venv .venv "feed_clean pytest openpyxl"
 
 PY=".venv/bin/python"
 

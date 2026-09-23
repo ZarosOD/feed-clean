@@ -13,8 +13,8 @@ It does four things, and it tells you which one it did to every row:
 2. **Normalise** prices, weights, dimensions, titles, vendor names, booleans
    and stock states into one format and one vocabulary.
 3. **Validate** against the rules a marketplace actually bounces rows on.
-4. **Report**: `clean.csv`, `rejects.csv`, `changes.csv` and a one-screen
-   summary.
+4. **Report**: `clean.csv`, `rejects.csv`, `changes.csv`, the same three
+   tables as one `clean.xlsx` workbook, and a one-screen summary.
 
 ```
 feed-clean · fixtures/supplier-feed.csv
@@ -54,6 +54,7 @@ COLUMNS   20 supplier header(s) mapped
   out/clean.csv          298 rows
   out/rejects.csv         15 rows
   out/changes.csv       2592 rows
+  out/clean.xlsx        2905 rows
 ```
 
 ## The one rule everything else follows
@@ -90,9 +91,10 @@ machine. Most of that is fetching a pinned `uv`. On a machine with no Python
 3.12 at all, uv downloads an interpreter too and it is closer to a minute.
 
 ```bash
-make test     # 228 tests; 10.3s from the same dead clone
-make strict   # the same run, but exit 2 if any row was rejected
-make demo     # regenerate the clip above, headless
+make test           # 304 tests; 10.3s from the same dead clone
+make strict         # the same run, but exit 2 if any row was rejected
+make demo           # regenerate the clip above, headless
+make demo-terminal  # the same story recorded as a terminal session instead
 ```
 
 Only two of those touch `out/`: **`make run`** and **`make strict`** overwrite
@@ -103,12 +105,12 @@ or write it at all, so you can run the tests over a result you are still
 looking at. `make clean` removes `out/` along with the venv and the fetched
 toolchain, and it says so in its name.
 
-`make demo` is the slow one, because VHS renders a terminal by driving a
-headless Chromium it has to download. Same clean-machine conditions:
-**about 95 seconds** from nothing — no vhs, no ttyd, no ffmpeg, no browser — and
-**about 65 seconds** to re-record once the toolchain is there. It leaves 231 MB in
-`demo/.toolchain/` and about 540 MB in `~/.cache`, none of it installed
-system-wide. `make clean` removes the first.
+`make demo` is the slow one, because it renders a real browser and has to
+download a headless Chromium to do it. Measured on this machine: **28 seconds**
+to re-record once the toolchain is there, and the first run adds a ~170 MB
+browser download on top of that — call it a minute and a half on a warm
+connection. It leaves **784 MB** in `demo/.toolchain/`, all of it inside the
+repo and none of it installed system-wide. `make clean` removes it.
 
 If you would rather use your own tooling:
 
@@ -265,7 +267,7 @@ Exit codes: `0` fine, `1` with `--fail-on-review` if anything is flagged, `2`
 with `--fail-on-reject` if anything was rejected, `3` a usage or profile
 problem, `4` the input could not be read.
 
-## The four files it writes
+## The files it writes
 
 **`out/clean.csv`** — the feed you upload. Canonical names, one unit per
 column, the unit in the header:
@@ -304,6 +306,25 @@ says.
 **`out/summary.txt`** — the screen at the top of this README. `--report` prints
 it; `--brief` prints the eight-line version, which is what you want in a cron
 log.
+
+**`out/clean.xlsx`** — the same three tables as one workbook, because clients
+ask for Excel and not for CSV. Three sheets in the order you want them: **Clean**
+first, because that is the file you opened the workbook for, then **Rejects**,
+then **Changes**. Header row frozen and filterable, prices stored as numbers you
+can sum rather than as text, skus and barcodes kept as text so Excel cannot eat
+a leading zero, and every flagged or rejected row tinted.
+
+It is the one part of the output with a dependency — `openpyxl` — so it is
+**optional**. Without it you get the three CSVs and a line **on stderr** saying
+the workbook was skipped and why — not in `out/summary.txt`, so a cron job that
+only keeps stdout will not see it — which is a complete result, not a failure.
+`make run` and `make test` install it; a bare `pip install .` does not, and
+`pip install 'feed-clean[xlsx]'` adds it. `--no-xlsx` skips the workbook even
+when openpyxl is there, and says nothing about it — there you asked for it.
+
+The CSVs and the sheets are two renderings of one definition in `report.py`, not
+two pieces of code that have to be kept agreeing — so `clean.csv` and the Clean
+sheet cannot disagree about a column or a value.
 
 ## Pointing it at your own feed
 
@@ -430,7 +451,7 @@ regression in `test_parse.py` was found.
 - **No image fetching.** It checks that an image URL is an absolute http(s)
   URL. It does not check that the image exists, is the right size, or is not a
   placeholder.
-- Tested against the bundled fixture and 228 tests. On a real feed the
+- Tested against the bundled fixture and 304 tests. On a real feed the
   honest expectation is that most rows come out clean and the rest get flagged
   or rejected rather than silently wrong. That is what the flag is for.
 
@@ -440,10 +461,10 @@ regression in `test_parse.py` was found.
 make test          # or: .venv/bin/python -m pytest -q
 ```
 
-228 tests, no network, 4.5 seconds. Most of that is the `test_make_targets.py`
-row of the table below: nine tests that run `make` in a throwaway copy of the
-repo, because the bug they cover only exists at that level. The other 219 take
-under a second.
+304 tests, no network, about 49 seconds. Roughly half of that is the
+`test_make_targets.py` row of the table below: nine tests that run `make` in a
+throwaway copy of the repo, because the bug they cover only exists at that
+level. Those nine take 23 seconds; the other 295 take 26.
 
 | File | Covers |
 | --- | --- |
@@ -452,9 +473,11 @@ under a second.
 | `test_normalize.py` | Header mapping, and that every edit leaves a change and every refusal leaves a change *and* an issue. |
 | `test_dedupe.py` | The ladder, one rung at a time, including that a tie rejects the group and that price is never backfilled. |
 | `test_validate.py` | Every reject and review rule, and the line between them. |
-| `test_report.py` | The shape of the four files and the wording of the summary. |
+| `test_report.py` | The shape of the output tables and the wording of the summary. |
+| `test_workbook.py` | `clean.xlsx`: that each sheet matches the CSV beside it row for row, that money is a number and a sku is not, and that a machine without `openpyxl` gets a line rather than a crash. |
 | `test_cli.py` | End to end over the bundled feed, asserting against `tests/expected.json`. |
 | `test_demo_preview.py`, `test_demo_fetch.py` | The shared recording helpers in `demo/lib/`: the table renderer and the download retry ladder. |
+| `test_demo_sheet.py` | The shared spreadsheet renderer in `demo/lib/sheet.py`, which draws the clip's BEFORE and AFTER frames: that it refuses to render a file that is not on disk, that a filtered view keeps the source file's own column letters and row numbers, and that the command on screen is the one whose output is under it. |
 | `test_demo_outputs.py` | That the recording writes both the GIF and the MP4, including the case where `vhs` exits `0` having skipped one of them. |
 | `test_make_targets.py` | Which `make` targets may touch `out/`. `make run` writes it; `test`, `strict` and `fixtures` must leave whatever is there alone; only the recording asks `setup.sh` to delete it. |
 
@@ -462,7 +485,15 @@ under a second.
 
 `./demo/record.sh` regenerates the clip at the top of this file from scratch,
 headless, on the synthetic fixture. It is a reusable pipeline with two recipes,
-documented in [demo/README.md](demo/README.md). This piece uses the terminal
+documented in [demo/README.md](demo/README.md). This piece uses the browser one,
+because the clip ends on `out/clean.xlsx` open in a spreadsheet grid and only a
+browser renders one. The terminal telling is still here:
+`make demo-terminal` writes it to `demo/out-terminal/`.
+
+**The AFTER frame is the real file.** The scene runs `clean.py`, then opens the
+workbook that run wrote and reads it off disk. It is not a fixture, not a
+re-typed table, and not a CSV pretty-printed into something spreadsheet-shaped —
+if the run does not write the file, the recording fails instead of showing you
 one.
 
 ## Layout
@@ -475,7 +506,7 @@ feed_clean/
   normalize.py               raw row in, canonical row out, every edit logged
   dedupe.py                  the ladder, and the backfill
   validate.py                the reject and review rules
-  report.py                  the four files and the summary
+  report.py                  the output tables, the CSV and xlsx writers, the summary
   models.py                  Row, Change, Issue
   cli.py                     arguments, the pipeline, exit codes
 profiles/supplier.json       column aliases and vocabularies for the fixture

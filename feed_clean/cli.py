@@ -44,6 +44,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="do not fill a winner's empty fields from the duplicate rows it beat",
     )
+    parser.add_argument(
+        "--no-xlsx",
+        action="store_true",
+        help="skip out/clean.xlsx; the CSVs are written either way",
+    )
     parser.add_argument("--report", action="store_true", help="print the full summary to stdout")
     parser.add_argument(
         "--brief",
@@ -106,11 +111,24 @@ def main(argv: list[str] | None = None) -> int:
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    clean_count = report.write_clean(out_dir / "clean.csv", clean_rows, unmapped)
-    reject_count = report.write_rejects(
-        out_dir / "rejects.csv", reject_rows, list(rows[0].original)
-    )
-    change_count = report.write_changes(out_dir / "changes.csv", rows)
+    # One definition per table, then one writer per format. The workbook's
+    # Clean sheet is the same object clean.csv is written from.
+    tables = [
+        report.clean_table(clean_rows, unmapped),
+        report.rejects_table(reject_rows, list(rows[0].original)),
+        report.changes_table(rows),
+    ]
+    clean_count = report.write_csv(out_dir / "clean.csv", tables[0])
+    reject_count = report.write_csv(out_dir / "rejects.csv", tables[1])
+    change_count = report.write_csv(out_dir / "changes.csv", tables[2])
+
+    wrote_xlsx = False
+    if not args.no_xlsx:
+        if report.xlsx_available():
+            report.write_workbook(out_dir / "clean.xlsx", tables)
+            wrote_xlsx = True
+        else:
+            say(report.XLSX_AVAILABLE_ERROR)
 
     summary = report.summarise(
         source=str(feed_path),
@@ -127,6 +145,10 @@ def main(argv: list[str] | None = None) -> int:
         f"{out_dir}/rejects.csv": reject_count,
         f"{out_dir}/changes.csv": change_count,
     }
+    if wrote_xlsx:
+        # All three tables in one book, so the count is their sum rather than a
+        # fourth independent number.
+        summary.files[f"{out_dir}/clean.xlsx"] = clean_count + reject_count + change_count
     text = report.render(summary)
     (out_dir / "summary.txt").write_text(text, encoding="utf-8")
 
@@ -138,6 +160,7 @@ def main(argv: list[str] | None = None) -> int:
         say(
             f"{clean_count} clean, {reject_count} rejected, {summary.flagged} flagged. "
             f"Wrote {out_dir}/clean.csv, rejects.csv, changes.csv, summary.txt"
+            + (", clean.xlsx" if wrote_xlsx else "")
         )
 
     if args.fail_on_reject and reject_rows:

@@ -1,11 +1,10 @@
 # Which recording recipe demo/record.sh uses. One of the names in demo/lib/.
 #
-# vhs        — this piece. The deliverable is a command and two CSV files, so
-#              the clip is a terminal: VHS renders text natively instead of
-#              photographing it, which is what keeps a table readable at GIF
-#              size. See demo/demo.tape.
+# playwright — this piece. The deliverable is a spreadsheet the client opens,
+#              so the clip opens it: demo/scene.py renders out/clean.xlsx in a
+#              grid, read off disk after the run that wrote it.
 #
-# playwright — the browser recipe, inherited from portfolio piece #2 and still
-#              here so piece #4 can choose it without reinventing it. It needs
-#              a demo/scene.py, which this piece does not have.
-vhs
+# vhs        — the terminal sibling, still here and still working. Try it with
+#              DEMO_RECIPE=vhs DEMO_OUT_DIR=demo/out-terminal ./demo/record.sh
+#              and see demo/demo.tape.
+playwright

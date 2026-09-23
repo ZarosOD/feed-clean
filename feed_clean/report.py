@@ -1,9 +1,19 @@
-"""The four files that come out, and the screen you read instead of them.
+"""The files that come out, and the screen you read instead of them.
 
 `clean.csv` is the feed you upload. `rejects.csv` is the file you send back to
 the supplier. `changes.csv` is the answer to "what did your tool do to my
 data", one line per edit, forever. `summary.txt` is what fits on a screen at
 11pm when you want to know whether to upload or to go to bed.
+
+`clean.xlsx` is those same three tables in one workbook, because a client asks
+for Excel and not for CSV. It is written whenever `openpyxl` imports and
+skipped — with a line in the summary saying so — when it does not: this tool's
+base install has no dependencies at all and that is worth keeping.
+
+Each table is defined once, as a `Table` of `(columns, records)`, and then
+rendered by whichever writer is asked for it. The CSV and the worksheet are two
+renderers over one definition, rather than two definitions with a test holding
+them level.
 """
 
 from __future__ import annotations
@@ -66,27 +76,46 @@ class Summary:
     files: dict[str, int] = field(default_factory=dict)
 
 
-def _writer(path: Path, columns):
-    handle = path.open("w", newline="", encoding="utf-8")
-    writer = csv.DictWriter(handle, fieldnames=list(columns), extrasaction="ignore")
-    writer.writeheader()
-    return handle, writer
+@dataclass(frozen=True)
+class Table:
+    """One output table: its header row and its records, defined once.
+
+    Both `write_csv` and the worksheet builder consume this, so `clean.csv` and
+    the workbook's Clean sheet cannot disagree about a column or a value —
+    there is nothing for them to disagree about.
+
+    `flagged` names the records the workbook should tint. It is a property of
+    the table (which rows this tool would not vouch for), not of the renderer,
+    which is why it lives here and not in the xlsx code.
+    """
+
+    name: str
+    columns: list[str]
+    records: list[dict]
+    flagged: frozenset[int] = frozenset()
+
+    def __len__(self) -> int:
+        return len(self.records)
+
+    def cells(self, record: dict) -> list:
+        return [record.get(column, "") for column in self.columns]
 
 
-def write_clean(path: Path, rows: list[Row], extra_headers: list[str]) -> int:
+def clean_table(rows: list[Row], extra_headers: list[str]) -> Table:
     columns = list(CLEAN_COLUMNS) + list(extra_headers) + ["needs_review", "issues"]
-    handle, writer = _writer(path, columns)
-    with handle:
-        for row in rows:
-            record = {name: row.get(name) for name in CLEAN_COLUMNS}
-            record.update({header: row.extra.get(header, "") for header in extra_headers})
-            record["needs_review"] = "yes" if row.needs_review else "no"
-            record["issues"] = row.issue_text()
-            writer.writerow(record)
-    return len(rows)
+    records, flagged = [], set()
+    for index, row in enumerate(rows):
+        record = {name: row.get(name) for name in CLEAN_COLUMNS}
+        record.update({header: row.extra.get(header, "") for header in extra_headers})
+        record["needs_review"] = "yes" if row.needs_review else "no"
+        record["issues"] = row.issue_text()
+        records.append(record)
+        if row.needs_review:
+            flagged.add(index)
+    return Table("Clean", columns, records, frozenset(flagged))
 
 
-def write_rejects(path: Path, rows: list[Row], original_headers: list[str]) -> int:
+def rejects_table(rows: list[Row], original_headers: list[str]) -> Table:
     """Rejected rows, each carrying the supplier's original line unchanged.
 
     The point is that the supplier can open this, read the reason, fix the cell
@@ -94,41 +123,170 @@ def write_rejects(path: Path, rows: list[Row], original_headers: list[str]) -> i
     version of their row makes them do the translation twice.
     """
     columns = ["line", "sku", "reject_rules", "reason"] + list(original_headers)
-    handle, writer = _writer(path, columns)
+    records = []
+    for row in rows:
+        record = dict(row.original)
+        record["line"] = row.line
+        record["sku"] = row.sku
+        record["reject_rules"] = " ".join(sorted(set(row.rules(REJECT))))
+        record["reason"] = "; ".join(
+            str(issue) for issue in row.issues if issue.severity == REJECT
+        )
+        records.append(record)
+    # Every row in this file is a rejection, so every row is tinted.
+    return Table("Rejects", columns, records, frozenset(range(len(records))))
+
+
+def changes_table(rows: list[Row]) -> Table:
+    records = [
+        {
+            "line": change.line,
+            "sku": change.sku,
+            "field": change.field,
+            "rule": change.rule,
+            "outcome": change.outcome,
+            "before": change.before,
+            "after": change.after,
+            "note": change.note,
+        }
+        for change in sorted(
+            (c for row in rows for c in row.changes), key=lambda c: (c.line, c.field, c.rule)
+        )
+    ]
+    flagged = {i for i, r in enumerate(records) if r["outcome"] == UNRESOLVED}
+    return Table("Changes", list(CHANGE_COLUMNS), records, frozenset(flagged))
+
+
+def write_csv(path: Path, table: Table) -> int:
+    handle = path.open("w", newline="", encoding="utf-8")
     with handle:
-        for row in rows:
-            record = dict(row.original)
-            record["line"] = row.line
-            record["sku"] = row.sku
-            record["reject_rules"] = " ".join(sorted(set(row.rules(REJECT))))
-            record["reason"] = "; ".join(
-                str(issue) for issue in row.issues if issue.severity == REJECT
-            )
+        writer = csv.DictWriter(handle, fieldnames=table.columns, extrasaction="ignore")
+        writer.writeheader()
+        for record in table.records:
             writer.writerow(record)
-    return len(rows)
+    return len(table)
+
+
+def write_clean(path: Path, rows: list[Row], extra_headers: list[str]) -> int:
+    return write_csv(path, clean_table(rows, extra_headers))
+
+
+def write_rejects(path: Path, rows: list[Row], original_headers: list[str]) -> int:
+    return write_csv(path, rejects_table(rows, original_headers))
 
 
 def write_changes(path: Path, rows: list[Row]) -> int:
-    handle, writer = _writer(path, CHANGE_COLUMNS)
-    count = 0
-    with handle:
-        for change in sorted(
-            (c for row in rows for c in row.changes), key=lambda c: (c.line, c.field, c.rule)
-        ):
-            writer.writerow(
-                {
-                    "line": change.line,
-                    "sku": change.sku,
-                    "field": change.field,
-                    "rule": change.rule,
-                    "outcome": change.outcome,
-                    "before": change.before,
-                    "after": change.after,
-                    "note": change.note,
-                }
+    return write_csv(path, changes_table(rows))
+
+
+# --------------------------------------------------------------------------
+# the workbook
+# --------------------------------------------------------------------------
+
+XLSX_AVAILABLE_ERROR = (
+    "openpyxl is not installed, so out/clean.xlsx was not written. "
+    "The CSVs are complete on their own; `pip install 'feed-clean[xlsx]'` "
+    "adds the workbook."
+)
+
+# Numeric-looking columns are written as numbers, not text, so the client can
+# sum a price column without retyping it. Anything not named here stays text —
+# a sku like "0012" or a barcode is a string, and Excel eats the leading zero
+# the moment it decides otherwise.
+NUMERIC_COLUMNS = frozenset(
+    {"price", "cost", "compare_at", "weight_g", "length_mm", "width_mm",
+     "height_mm", "quantity", "line"}
+)
+
+# Money keeps its two decimals on screen. Without this the cell holds 1299 and
+# Excel prints "1299", which disagrees with clean.csv's "1299.00" over nothing:
+# the value is identical, only the display was missing.
+MONEY_COLUMNS = frozenset({"price", "cost", "compare_at"})
+MONEY_FORMAT = "0.00"
+
+# Kept narrow enough to read; `description` is a paragraph and gets clipped by
+# the column rather than stretching the sheet off the screen.
+COLUMN_WIDTH = {"title": 34, "description": 40, "issues": 46, "reason": 46,
+                "image_url": 30, "tags": 26, "note": 30}
+DEFAULT_WIDTH = 15
+
+
+def xlsx_available() -> bool:
+    try:
+        import openpyxl  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def _as_number(column: str, value):
+    if column not in NUMERIC_COLUMNS or value in ("", None):
+        return value
+    try:
+        text = str(value)
+        return int(text) if text.lstrip("-").isdigit() else float(text)
+    except ValueError:
+        return value
+
+
+def write_workbook(path: Path, tables: list[Table]) -> int:
+    """The same tables, in one .xlsx. Returns the number of data rows written.
+
+    Sheet order is the order it is handed, and the first sheet is the one the
+    file opens on — Clean, because that is the file the client is here for.
+    Flagged rows are tinted with the same meaning everywhere: amber is "kept,
+    but we would not vouch for this cell".
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    head_font = Font(bold=True, color="FFFFFF")
+    head_fill = PatternFill("solid", fgColor="2F3E4E")
+    flag_fill = PatternFill("solid", fgColor="FFF4D6")
+
+    book = Workbook()
+    book.remove(book.active)
+    written = 0
+
+    for table in tables:
+        sheet = book.create_sheet(table.name)
+        sheet.append(table.columns)
+        for cell in sheet[1]:
+            cell.font = head_font
+            cell.fill = head_fill
+            cell.alignment = Alignment(vertical="center")
+
+        money = [i for i, c in enumerate(table.columns) if c in MONEY_COLUMNS]
+        for index, record in enumerate(table.records):
+            sheet.append(
+                [_as_number(column, record.get(column, "")) for column in table.columns]
             )
-            count += 1
-    return count
+            written_row = sheet[sheet.max_row]
+            for position in money:
+                if isinstance(written_row[position].value, (int, float)):
+                    written_row[position].number_format = MONEY_FORMAT
+            if index in table.flagged:
+                for cell in written_row:
+                    cell.fill = flag_fill
+        written += len(table)
+
+        for position, column in enumerate(table.columns, start=1):
+            sheet.column_dimensions[get_column_letter(position)].width = COLUMN_WIDTH.get(
+                column, DEFAULT_WIDTH
+            )
+        # The header stays put when the client scrolls, and the filter arrows
+        # are there because the first thing anyone does to a rejects sheet is
+        # filter it.
+        sheet.freeze_panes = "A2"
+        if len(table):
+            sheet.auto_filter.ref = (
+                f"A1:{get_column_letter(len(table.columns))}{len(table) + 1}"
+            )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    book.save(path)
+    return written
 
 
 def summarise(

@@ -9,8 +9,21 @@ requires-python = ">=3.12"
 dependencies = []
 
 [project.optional-dependencies]
+# The .xlsx half of the output. Optional rather than required, so the paragraph
+# above stays literally true: without it you get the three CSVs and a line
+# saying the workbook was skipped, which is a complete result and not a failure.
+xlsx = [
+    "openpyxl==3.1.5",
+]
 dev = [
     "pytest==8.3.3",
+    "openpyxl==3.1.5",
+]
+# Only needed to regenerate demo/out/. Kept out of the default install so
+# `make run` does not pull a browser down for a job that does not need one.
+demo = [
+    "playwright==1.47.0",
+    "openpyxl==3.1.5",
 ]
 
 [build-system]
