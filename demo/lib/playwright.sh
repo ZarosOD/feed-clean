@@ -39,6 +39,13 @@ export PLAYWRIGHT_BROWSERS_PATH="$TOOLCHAIN_DIR/browsers"
 GIF_WIDTH="${GIF_WIDTH:-1000}"
 GIF_FPS="${GIF_FPS:-6}"
 
+# The mp4 is not the GIF and does not share its ceiling. GIF_WIDTH buys a
+# README that loads; the mp4 is what you attach to a proposal, and at a couple
+# of hundred kilobytes there is no size pressure on it to trade anything away
+# for. So it keeps the capture size. Empty means exactly that — no resampling.
+# Set MP4_WIDTH to a number for a piece that needs a smaller attachment.
+MP4_WIDTH="${MP4_WIDTH:-}"
+
 # Chromium records the page as lossy VP8, so a flat CSS colour does not arrive
 # flat. Measured inside one 56px #cdd3e4 thumbnail: 6-9 distinct values, and the
 # minority ones flip every few frames. That costs twice over. The flipped pixels
@@ -145,9 +152,15 @@ encode_clip() {
     -loop 0 "$out_dir/demo.gif"
 
   pw_log "encoding mp4"
-  # libx264 refuses odd dimensions, hence the -2 in the scale filter above.
+  # libx264 refuses odd dimensions. Asked for a width, -2 derives an even
+  # height; left at the capture size, trunc()*2 rounds a stray odd edge down
+  # and resamples nothing.
+  local mp4_scale="scale=trunc(iw/2)*2:trunc(ih/2)*2"
+  if [ -n "$MP4_WIDTH" ]; then
+    mp4_scale="scale=${MP4_WIDTH}:-2:flags=lanczos"
+  fi
   ffmpeg -nostdin -loglevel error -y -i "$source" \
-    -vf "scale=${GIF_WIDTH}:-2:flags=lanczos" \
+    -vf "$mp4_scale" \
     -c:v libx264 -pix_fmt yuv420p -crf 26 -preset veryfast \
     -movflags +faststart "$out_dir/demo.mp4"
 }
