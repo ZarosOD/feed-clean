@@ -85,13 +85,15 @@ git clone <this repo> && cd feed-clean
 make run
 ```
 
-**5.9 seconds** from a dead clone to real output, measured with an empty `HOME`
-and `PATH=/usr/bin:/bin` — no `uv`, no virtualenv, no caches, nothing on the
-machine. Most of that is fetching a pinned `uv`. On a machine with no Python
-3.12 at all, uv downloads an interpreter too and it is closer to a minute.
+**About 9 seconds** from a dead clone to real output — 8.8, 9.5 and 10.2 s over
+three clones, measured with an empty `HOME` and `PATH=/usr/bin:/bin`: no `uv`,
+no virtualenv, no caches, nothing on the machine. Most of that is fetching a
+pinned `uv` and one wheel, so it moves with your connection. On a machine with
+no Python 3.12 at all, uv downloads an interpreter too and it is closer to a
+minute.
 
 ```bash
-make test           # 304 tests; 10.3s from the same dead clone
+make test           # the same 304 tests: 51s in that clone, 56s from a cold one
 make strict         # the same run, but exit 2 if any row was rejected
 make demo           # regenerate the clip above, headless
 make demo-terminal  # the same story recorded as a terminal session instead
