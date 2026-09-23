@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 FEED := fixtures/supplier-feed.csv
 
-.PHONY: help setup run strict test fixtures demo demo-terminal clean
+.PHONY: help setup run strict test fixtures demo demo-terminal clean timings
 
 help:
 	@echo "make run       clean the bundled dirty feed and print the summary"
@@ -10,6 +10,7 @@ help:
 	@echo "make fixtures  regenerate the synthetic feed and its ground truth"
 	@echo "make demo      regenerate demo/out/demo.gif with Playwright, headless"
 	@echo "make demo-terminal  the same story recorded with VHS instead"
+	@echo "make timings        re-measure the README wall clocks and diff them"
 
 setup:
 	@./demo/setup.sh
@@ -39,3 +40,8 @@ demo-terminal:
 clean:
 	rm -rf out demo/out demo/out-terminal demo/.toolchain demo/.scratch .pytest_cache
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +
+
+# Re-measure the README numbers no test can guard, and print the diff against
+# what it currently says. By hand, before a push: never in CI.
+timings:
+	@python3 tools/timings.py $(ARGS)
