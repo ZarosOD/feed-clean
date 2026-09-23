@@ -89,8 +89,9 @@ make run
 three clones, measured with an empty `HOME` and `PATH=/usr/bin:/bin`: no `uv`,
 no virtualenv, no caches, nothing on the machine. Most of that is fetching a
 pinned `uv` and one wheel, so it moves with your connection. On a machine with
-no Python 3.12 at all, uv downloads an interpreter too and it is closer to a
-minute.
+no Python 3.12 at all, uv downloads an interpreter too, which will be slower
+again — this box has 3.12, so I have no measurement of that case and have not
+put a number on it.
 
 ```bash
 make test           # the same 304 tests: 51s in that clone, 56s from a cold one
@@ -108,11 +109,13 @@ looking at. `make clean` removes `out/` along with the venv and the fetched
 toolchain, and it says so in its name.
 
 `make demo` is the slow one, because it renders a real browser and has to
-download a headless Chromium to do it. Measured on this machine: **28 seconds**
-to re-record once the toolchain is there, and the first run adds a ~170 MB
-browser download on top of that — call it a minute and a half on a warm
-connection. It leaves **784 MB** in `demo/.toolchain/`, all of it inside the
-repo and none of it installed system-wide. `make clean` removes it.
+download a headless Chromium to do it. Measured on this machine: **about 25
+seconds** to re-record once the toolchain is there — 24.7, 24.7 and 25.1 s over
+three runs. The first run adds the Chromium download on top of that, which I
+have not timed, so the wall clock for a first `make demo` is the one number
+here I cannot give you. It leaves **760 MB** in `demo/.toolchain/` — 549 MB of
+that the unpacked Chromium — all of it inside the repo and none of it installed
+system-wide. `make clean` removes it.
 
 If you would rather use your own tooling:
 
