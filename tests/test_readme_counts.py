@@ -130,18 +130,38 @@ CLAIMED_AT_BIRTH = {
 }
 
 
+def piece() -> str:
+    """Which of the four this is, read off its own pyproject.toml.
+
+    Not the directory name. A basename is not a property of a repo: `git clone
+    <url> feeds` is an honest checkout wearing the wrong one, and so is the
+    <tmp>/clone that tools/timings.py makes to time a dead clone. Keying on
+    Path.name was the first draft of this file, and the first dead-clone `make
+    test` run found it — five failures in a checkout whose only sin was being
+    called "clone", in the one environment these READMEs describe.
+    """
+    found = re.search(
+        r'^name\s*=\s*"([^"]+)"',
+        (REPO / "pyproject.toml").read_text(encoding="utf-8"),
+        re.MULTILINE,
+    )
+    assert found is not None, "no [project] name in pyproject.toml"
+    return found.group(1)
+
+
 def claimed(row: str) -> bool:
     """Whether this repo stated `row` when this file was written.
 
-    An unknown directory name (a clone renamed on disk, a piece this file was
-    copied into without being declared) raises rather than defaulting to
-    "claims nothing" — the default that makes every check below vacuous.
+    A piece this file was copied into without being declared raises rather than
+    defaulting to "claims nothing" — the default that makes every check below
+    vacuous.
     """
+    name = piece()
     try:
-        return row in CLAIMED_AT_BIRTH[REPO.name]
+        return row in CLAIMED_AT_BIRTH[name]
     except KeyError:
         raise AssertionError(
-            f"{REPO.name} is not in CLAIMED_AT_BIRTH. Add it with the rows its "
+            f"{name} is not in CLAIMED_AT_BIRTH. Add it with the rows its "
             f"README states, or this file guards nothing here. Known: "
             f"{', '.join(sorted(CLAIMED_AT_BIRTH))}"
         ) from None
@@ -451,6 +471,18 @@ def test_per_file_ignores_prose_that_merely_names_a_file() -> None:
 def test_remainder_reads_only_a_digit_remainder() -> None:
     assert REMAINDER.findall("take 31 seconds between them; the other 324 take 42") == ["324"]
     assert REMAINDER.findall("the other files take 42 seconds") == []
+
+
+def test_the_piece_names_itself_off_a_committed_file() -> None:
+    """The identity every check above keys on must not be the directory name.
+    A dead clone — the environment these READMEs are *about* — is checked out
+    at whatever path the tool timing it chose."""
+    assert piece() in CLAIMED_AT_BIRTH
+    assert piece() == re.search(
+        r'^name\s*=\s*"([^"]+)"',
+        (REPO / "pyproject.toml").read_text(encoding="utf-8"),
+        re.MULTILINE,
+    ).group(1)
 
 
 def test_number_reads_both_spellings_and_refuses_anything_else() -> None:

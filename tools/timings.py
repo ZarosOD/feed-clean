@@ -59,8 +59,14 @@ Two limits, both deliberate:
     written, and a row that stops matching is reported `MISSING`, not `n/a`.
     Deleting a claim for real means deleting its entry here in the same commit.
 
-Exit code: 0 when every row is `ok`, `n/a` or skipped with a stated reason; 1
-when any row is `REVIEW`, `STALE` or `MISSING`; 2 when you invoked it wrong.
+Exit code: 0 when every row this README claims came out `ok`, plus whatever it
+claims nothing about; 1 when any claimed row is `REVIEW`, `STALE`, `MISSING` or
+could not be measured at all; 2 when you invoked it wrong. A row that could not
+run is NOT a pass — the README still states the number and nothing re-measured
+it, and `skipped` reading as green is the silence this target exists to end.
+
+`make timings` therefore prints `make: *** Error 1` when it has something to
+tell you. That is the exit code arriving, not a crash.
 """
 
 from __future__ import annotations
@@ -78,6 +84,24 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 README = REPO / "README.md"
+
+
+def piece():
+    """Which of the four this is, read off its own pyproject.toml.
+
+    Not the directory name. A basename is not a property of a repo: `git clone
+    <url> feeds` and the dead clone this file makes at <tmp>/clone are both
+    honest checkouts wearing the wrong one. Keying on Path.name was the first
+    draft, and the dead-clone `make test` row found it in the first run — five
+    failures in a checkout whose only sin was being called "clone".
+    """
+    found = re.search(r'^name\s*=\s*"([^"]+)"',
+                      (REPO / "pyproject.toml").read_text(encoding="utf-8"),
+                      re.MULTILINE)
+    if found is None:
+        raise SystemExit("timings.py: no [project] name in pyproject.toml, so "
+                         "there is no way to tell which piece this is")
+    return found.group(1)
 
 # A dead clone is measured under cron's environment, not your shell's: no `uv`
 # on PATH, no caches, an empty HOME. Same shape THE-263 measured these numbers
@@ -122,7 +146,7 @@ ROWS = [
     Row("test-dead", "dead clone -> `make test`", "s", "clone + one suite run per repeat",
         select=r"(?=.*dead clone)(?=.*(?:make test|the suite)).*",
         numbers=SECONDS),
-    Row("test-split", "the files the README times by name", "s", "two extra suite runs",
+    Row("test-split", "the files the README times by name", "s", "two extra suite runs per repeat",
         select=r"(?=.*`test_[a-z0-9_]+\.py`)(?=.*second).*",
         numbers=SECONDS),
     Row("demo-warm", "`make demo`, toolchain warm", "s", "~25 s per repeat",
@@ -238,9 +262,11 @@ def timed(argv, cwd, env=None):
                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     elapsed = time.monotonic() - started
     if proc.returncode != 0:
-        tail = proc.stdout.decode("utf-8", "replace")[-2000:]
-        raise Skip("%s exited %d after %.1f s:\n%s"
-                   % (" ".join(argv), proc.returncode, elapsed, tail))
+        tail = proc.stdout.decode("utf-8", "replace").rstrip().splitlines()[-6:]
+        raise Skip("`%s` exited %d after %.1f s, so nothing was timed. Last "
+                   "lines:\n    %s"
+                   % (" ".join(argv[-3:]), proc.returncode, elapsed,
+                      "\n    ".join(tail)))
     return elapsed
 
 
@@ -368,6 +394,7 @@ def collected_tests():
 MEASURE = {
     "tests": collected_tests,
     "test-warm": warm_suite,
+    "test-split": named_file_splits,
     "run-dead": in_a_dead_clone("run"),
     "test-dead": in_a_dead_clone("test"),
     "demo-warm": warm_demo,
@@ -387,29 +414,34 @@ MEASURED_ONCE = {"tests", "toolchain-size", "chromium-size", "venv-size"}
 
 
 def verdict(row, measured, found):
-    """(label, note). `found` is [(line, chunk, figures)] for this row."""
+    """(label, note). `measured` is a list of figures; `found` is
+    [(line, chunk, figures)] for this row."""
     if not found:
-        if row.key in CLAIMED_AT_BIRTH.get(REPO.name, set()):
+        if row.key in CLAIMED_AT_BIRTH.get(piece(), set()):
             return "MISSING", ("README.md stated this on 2026-09-23 and now "
                                "matches nothing — reworded, or deleted without "
                                "dropping it from CLAIMED_AT_BIRTH")
         return "n/a", "README.md states no figure for this, and never did"
     figures = [f for _, _, chunk_figures in found for f in chunk_figures]
-    if row.key not in CLAIMED_AT_BIRTH.get(REPO.name, set()):
+    if row.key not in CLAIMED_AT_BIRTH.get(piece(), set()):
         return "NEW", ("a figure nobody declared: add %r to this repo's entry "
                        "in CLAIMED_AT_BIRTH so it is re-measured on purpose"
                        % row.key)
     if row.exact:
-        if all(f == measured for f in figures):
+        if all(f == m for f in figures for m in measured):
             return "ok", ""
         return "STALE", "README says %s, measured %s" % (
-            "/".join(fmt(f) for f in sorted(set(figures))), fmt(measured))
+            "/".join(fmt(f) for f in sorted(set(figures))),
+            "/".join(fmt(m) for m in measured))
     low, high = min(figures), max(figures)
-    if low <= measured <= high:
+    # Every measured value, not just the largest: test-split measures one per
+    # named file and a drift in either is a drift.
+    outside = [m for m in measured if not low <= m <= high]
+    if not outside:
         return "ok", "inside the %s-%s %s the README quotes" % (
             fmt(low), fmt(high), row.unit)
     return "REVIEW", "measured %s %s, outside the %s-%s %s quoted" % (
-        fmt(measured), row.unit, fmt(low), fmt(high), row.unit)
+        "/".join(fmt(m) for m in outside), row.unit, fmt(low), fmt(high), row.unit)
 
 
 def fmt(value):
@@ -432,11 +464,17 @@ def report_tree_state():
 
 
 def run_row(row, repeat):
-    """(measured, samples) or raise Skip."""
+    """(measured, samples) or raise Skip.
+
+    test-split measures a value per named file, so its median is per key. The
+    first draft returned samples[0] for that shape, which spent the repeats and
+    then read one of them — a slow way to measure once.
+    """
     once = row.key in MEASURED_ONCE
     samples = [MEASURE[row.key]() for _ in range(1 if once else repeat)]
-    if isinstance(samples[0], dict):  # test-split: a value per named file
-        return samples[0], samples
+    if isinstance(samples[0], dict):
+        return ({name: statistics.median([s[name] for s in samples])
+                 for name in samples[0]}, samples)
     return statistics.median(samples), samples
 
 
@@ -453,7 +491,7 @@ def main(argv=None):
 
     if args.list:
         for row in ROWS:
-            claimed = row.key in CLAIMED_AT_BIRTH.get(REPO.name, set())
+            claimed = row.key in CLAIMED_AT_BIRTH.get(piece(), set())
             print("  %-15s %-38s %-32s %s" % (
                 row.key, row.title, row.cost,
                 "claimed here" if claimed else "not claimed here"))
@@ -466,9 +504,9 @@ def main(argv=None):
     if unknown:
         parser.error("unknown row(s): %s. Known: %s"
                      % (", ".join(unknown), ", ".join(BY_KEY)))
-    if REPO.name not in CLAIMED_AT_BIRTH:
+    if piece() not in CLAIMED_AT_BIRTH:
         print("timings.py: %s is not in CLAIMED_AT_BIRTH, so a missing claim "
-              "cannot be told from a reworded one here. Add it." % REPO.name,
+              "cannot be told from a reworded one here. Add it." % piece(),
               file=sys.stderr)
         return 2
     for tool in ("git", "make", "du"):
@@ -476,31 +514,43 @@ def main(argv=None):
             print("timings.py: needs `%s` on PATH" % tool, file=sys.stderr)
             return 2
 
-    print("tools/timings.py — %s, %d repeat(s)" % (REPO.name, args.repeat))
+    print("tools/timings.py — %s, %d repeat(s)" % (piece(), args.repeat))
     report_tree_state()
     print()
 
     text = README.read_text(encoding="utf-8")
+    declared = CLAIMED_AT_BIRTH[piece()]
     needs_a_human = []
     for row in (BY_KEY[k] for k in wanted):
         found = claims(row, text)
         try:
             measured, samples = run_row(row, args.repeat)
         except Skip as exc:
-            print("%-15s skipped: %s" % (row.key, exc))
+            # A row this piece claims and could not measure is not a pass. The
+            # README states a number; nothing here re-measured it; saying so
+            # under `skipped` and then exiting 0 would be the same silence this
+            # target exists to end. A row nobody claims is genuinely nothing.
+            unmeasured = row.key in declared
+            print("%-15s %s: %s" % (
+                row.key,
+                "NOT MEASURED (and README.md states it)" if unmeasured
+                else "skipped, nothing claims it",
+                exc))
             print()
+            if unmeasured:
+                needs_a_human.append(row.key)
             continue
         if isinstance(measured, dict):
             print("%-15s %s" % (row.key, row.title))
             for name, value in measured.items():
                 print("  %-34s %8s s" % (name, fmt(value)))
-            label, note = verdict(row, max(measured.values()), found)
+            label, note = verdict(row, list(measured.values()), found)
         else:
             spread = "" if len(samples) < 2 else "   (%s)" % ", ".join(
                 "%.1f" % s for s in samples)
             print("%-15s %-38s %8s %s%s" % (
                 row.key, row.title, fmt(measured), row.unit, spread))
-            label, note = verdict(row, measured, found)
+            label, note = verdict(row, [measured], found)
         for line, chunk, figures in found:
             print("  README.md:%-4d %s" % (line, shorten(chunk)))
             print("  %-14s figures: %s" % ("", ", ".join(fmt(f) for f in figures)))

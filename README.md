@@ -94,7 +94,7 @@ again — this box has 3.12, so I have no measurement of that case and have not
 put a number on it.
 
 ```bash
-make test           # the same 333 tests: 72s warm, 78s from that dead clone
+make test           # the same 364 tests: 72s warm, 78s from that dead clone
 make strict         # the same run, but exit 2 if any row was rejected
 make demo           # regenerate the clip above, headless
 make demo-terminal  # the same story recorded as a terminal session instead
@@ -470,7 +470,7 @@ regression in `test_parse.py` was found.
 - **No image fetching.** It checks that an image URL is an absolute http(s)
   URL. It does not check that the image exists, is the right size, or is not a
   placeholder.
-- Tested against the bundled fixture and 333 tests. On a real feed the
+- Tested against the bundled fixture and 364 tests. On a real feed the
   honest expectation is that most rows come out clean and the rest get flagged
   or rejected rather than silently wrong. That is what the flag is for.
 
@@ -480,13 +480,13 @@ regression in `test_parse.py` was found.
 make test          # or: .venv/bin/python -m pytest -q
 ```
 
-333 tests, no network, about 72 seconds. Two files are most of that. The nine
+364 tests, no network, about 72 seconds. Two files are most of that. The nine
 in `test_make_targets.py` run `make` in a throwaway copy of the repo, because
 the bug they cover only exists at that level, and take 31 seconds between them;
-the other 324 take 42. Half of *those* 42 is `test_workbook.py`, which repacks
+the other 355 take 42. Half of *those* 42 is `test_workbook.py`, which repacks
 `clean.xlsx` with both clocks moved to prove the bytes do not follow the clock.
 
-Two of the 333 skip in a dead clone — the `ffprobe` cross-check in
+Two of the 364 skip in a dead clone — the `ffprobe` cross-check in
 `test_readme_clip.py`, which needs a toolchain `make demo` downloads. They are
 the suite's only skips and they are a cross-check, not a guard.
 
@@ -505,6 +505,23 @@ the suite's only skips and they are a cross-check, not a guard.
 | `test_demo_outputs.py` | That the recording writes both the GIF and the MP4, including the case where `vhs` exits `0` having skipped one of them. |
 | `test_readme_clip.py` | The clip-length sentence in this README, read back off the committed `demo/out/demo.gif` and `demo/out/demo.mp4`. It parses the numbers out of README.md rather than restating them, so a re-record that moves the clip and leaves the prose behind fails here. The duration readers are stdlib, because a dead clone has no `ffprobe`, and they are pinned against hand-built mp4 and gif headers. |
 | `test_make_targets.py` | Which `make` targets may touch `out/`. `make run` writes it; `test`, `strict` and `fixtures` must leave whatever is there alone; only the recording asks `setup.sh` to delete it. |
+| `test_readme_counts.py` | The test counts in this README, read back off `pytest --collect-only`: the total, the dead-clone skip figure (off the ffprobe cross-check's own parametrised count, not a number typed twice) and any per-file split quoted below. A count is deterministic, so it is guarded; the wall clocks are not, and `make timings` covers those. |
+
+### The numbers a test cannot guard
+
+```bash
+make timings          # measure them, and diff them against this file
+make timings ARGS="--list"
+```
+
+A test count is deterministic, so it is guarded above. The wall clocks and disk
+sizes in this file are not: they move with the machine, the network and the
+pinned versions. Asserting them in the suite would buy a flaky one rather than
+a guard, so they get `tools/timings.py` instead — a target run by hand before a
+push, never in CI, which re-measures each of them, prints the sentence in this
+README that states it, and says whether the two still agree. It exits non-zero
+when they do not, so `make` reports `Error 1`; that is the verdict arriving, not
+a crash.
 
 ## Recording the demo
 
