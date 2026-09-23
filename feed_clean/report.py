@@ -19,6 +19,9 @@ them level.
 from __future__ import annotations
 
 import csv
+import io
+import re
+import zipfile
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -285,8 +288,47 @@ def write_workbook(path: Path, tables: list[Table]) -> int:
             )
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    book.save(path)
+    buffer = io.BytesIO()
+    book.save(buffer)
+    path.write_bytes(_repack(buffer.getvalue()))
     return written
+
+
+#: The two places an .xlsx records a wall clock. Measured on openpyxl 3.1.5:
+#: `created` honours `book.properties` and `modified` is refreshed to the save
+#: time whatever the properties said — so pinning it has to happen here, after
+#: the save.
+_TIMESTAMP = re.compile(
+    rb"(<dcterms:(?:created|modified)[^>]*>)[^<]*(</dcterms:(?:created|modified)>)"
+)
+_EPOCH_XML = b"1980-01-01T00:00:00Z"
+
+
+def _repack(data: bytes) -> bytes:
+    """Rewrite an xlsx with every clock in it flattened.
+
+    Two of them. An .xlsx is a zip, and `ZipFile.writestr` stamps each member
+    with the current local time; it is also an Office document, and
+    `docProps/core.xml` carries a modification timestamp that openpyxl
+    refreshes on save. Either one makes two runs a second apart produce
+    different bytes for identical content, which would put "run it again and
+    nothing changed" out of reach of `cmp` — the one check a client might
+    actually perform. Order and contents are left exactly as openpyxl wrote
+    them; only the clocks go.
+    """
+    source = zipfile.ZipFile(io.BytesIO(data))
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as target:
+        for item in source.infolist():
+            body = source.read(item.filename)
+            if item.filename == "docProps/core.xml":
+                body = _TIMESTAMP.sub(rb"\g<1>" + _EPOCH_XML + rb"\g<2>", body)
+            info = zipfile.ZipInfo(item.filename, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = item.compress_type
+            info.external_attr = item.external_attr
+            info.create_system = 0
+            target.writestr(info, body)
+    return out.getvalue()
 
 
 def summarise(

@@ -331,6 +331,20 @@ The CSVs and the sheets are two renderings of one definition in `report.py`, not
 two pieces of code that have to be kept agreeing — so `clean.csv` and the Clean
 sheet cannot disagree about a column or a value.
 
+**The same feed gives the same bytes.** An `.xlsx` is a zip, and zip members
+carry the time they were written; it is also an Office document, and openpyxl
+stamps the save time into `docProps/core.xml` whatever the workbook properties
+say. Both clocks are flattened to a fixed epoch (`report._repack`), so:
+
+```
+$ make run && cp out/clean.xlsx /tmp/before.xlsx && make run
+$ cmp /tmp/before.xlsx out/clean.xlsx && echo identical
+identical
+```
+
+That is the difference between "trust me" and `cmp`. The CSVs were already
+byte-stable; the workbook is now too.
+
 ## Pointing it at your own feed
 
 One JSON file, no code. `profiles/supplier.json`, abridged — the real one

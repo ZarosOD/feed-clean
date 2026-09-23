@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import csv
 import io
+import re
+import zipfile
 
 import pytest
 
@@ -209,3 +211,95 @@ class TestAgainstTheRealFeed:
         }
         assert tinted == flagged
         assert flagged, "the fixture is supposed to produce flagged rows"
+
+
+def with_a_moved_clock(data: bytes) -> bytes:
+    """The same workbook as a machine whose clock reads differently wrote it.
+
+    Both clocks move: the zip member stamps and the Office document's own
+    `dcterms` timestamps. This exists because writing the file twice inside one
+    test proves nothing — both saves land in the same second, so the check
+    passes whether or not anything was flattened. Moving the clock by hand is
+    what makes the assertion load-bearing.
+    """
+    source = zipfile.ZipFile(io.BytesIO(data))
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as target:
+        for item in source.infolist():
+            body = source.read(item.filename)
+            if item.filename == "docProps/core.xml":
+                body = report._TIMESTAMP.sub(rb"\g<1>2031-07-04T11:22:33Z\g<2>", body)
+            info = zipfile.ZipInfo(item.filename, date_time=(2031, 7, 4, 11, 22, 32))
+            info.compress_type = item.compress_type
+            info.external_attr = item.external_attr
+            info.create_system = 0
+            target.writestr(info, body)
+    return out.getvalue()
+
+
+class TestReproducible:
+    """Two runs over the same feed leave the same bytes, so `cmp` can stand in
+    for "trust me" — the pinned-checkout rule the README's recipe states. An
+    .xlsx is a zip of timestamped members and an Office document with its own
+    clock; both are flattened in `report._repack`."""
+
+    def test_a_run_on_a_different_clock_produces_the_same_bytes(
+        self, tmp_path, profile
+    ):
+        """The real claim: what the file holds decides its bytes, and when it
+        was written does not. Feeding `_repack` a copy with both clocks moved
+        has to give back exactly what the tool wrote."""
+        _, built = tables(profile, GOOD, NO_PRICE)
+        path = tmp_path / "clean.xlsx"
+        report.write_workbook(path, built)
+        written = path.read_bytes()
+
+        assert report._repack(with_a_moved_clock(written)) == written
+
+    def test_two_runs_produce_identical_bytes(self, tmp_path, profile):
+        _, built = tables(profile, GOOD, NO_PRICE)
+        report.write_workbook(tmp_path / "first.xlsx", built)
+        report.write_workbook(tmp_path / "second.xlsx", built)
+
+        assert (tmp_path / "first.xlsx").read_bytes() == (
+            tmp_path / "second.xlsx"
+        ).read_bytes()
+
+    def test_two_cli_runs_over_the_bundled_feed_produce_identical_bytes(
+        self, tmp_path, feed_path
+    ):
+        """The check the README tells a client to perform, on the real feed."""
+        first, second = tmp_path / "a", tmp_path / "b"
+        cli.main([str(feed_path), "--out", str(first), "--quiet"])
+        cli.main([str(feed_path), "--out", str(second), "--quiet"])
+
+        assert (first / "clean.xlsx").read_bytes() == (
+            second / "clean.xlsx"
+        ).read_bytes()
+
+    def test_the_document_clock_is_flattened_not_just_the_zip(
+        self, tmp_path, profile
+    ):
+        """Two clocks, two fixes. Rewriting only the zip member timestamps
+        would leave docProps/core.xml differing every run, and the file would
+        still fail `cmp` while looking like it had been handled.
+
+        Measured on openpyxl 3.1.5: `created` honours the workbook property and
+        `modified` is refreshed to the save time regardless, so both timestamps
+        are checked by name. Asserting the epoch appears *somewhere* in
+        core.xml passes on `created` alone while `modified` still moves.
+        """
+        _, built = tables(profile, GOOD)
+        path = tmp_path / "clean.xlsx"
+        report.write_workbook(path, built)
+
+        with zipfile.ZipFile(path) as book:
+            core = book.read("docProps/core.xml").decode("utf-8")
+            stamps = dict(re.findall(r"<dcterms:(created|modified)[^>]*>([^<]*)<", core))
+            assert stamps == {
+                "created": "1980-01-01T00:00:00Z",
+                "modified": "1980-01-01T00:00:00Z",
+            }
+            assert all(
+                item.date_time == (1980, 1, 1, 0, 0, 0) for item in book.infolist()
+            )
