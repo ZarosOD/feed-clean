@@ -142,9 +142,15 @@ def test_committed_clip_directory_holds_both_formats() -> None:
 
     demo/out/ is committed on purpose, so this asserts the repo a client
     clones actually contains the portfolio cover.
+
+    poster.png is here for the same reason the two clips are: it is the cover
+    image a platform is handed when it will not take a video, and the
+    Playwright recipe writes it during the run — after record.sh has wiped and
+    recreated the directory — so it has exactly the lifetime the clips have.
+    What is *in* it is tests/test_demo_card.py's business.
     """
     out_dir = REPO_ROOT / "demo" / "out"
-    for name in ("demo.gif", "demo.mp4"):
+    for name in ("demo.gif", "demo.mp4", "poster.png"):
         clip = out_dir / name
         assert clip.is_file(), f"{name} is missing from demo/out/"
         assert clip.stat().st_size > 0, f"{name} is empty"

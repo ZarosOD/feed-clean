@@ -102,6 +102,60 @@ the thing being demonstrated.
 Covered by `tests/test_demo_sheet.py`, which is byte-identical in all four
 repos for the same reason the module is.
 
+## The title card, `lib/card.py`
+
+Every clip opens on 0.8 s of dark frame: this piece's before artifact on the
+left under a white label, its after artifact on the right under a green one,
+one line of specifics beneath each. The same render is exported beside the
+clips as `demo/out/poster.png`, for a platform that wants a cover image rather
+than a video.
+
+It exists because frame 0 is a thumbnail. Freelancer derives a video's poster
+from frame 0, and this README embeds the `.gif`, whose first frame is what a
+reader sees before deciding whether to press play. Frame 0 used to be a
+spreadsheet on pale paper, which at that size is a blank white rectangle
+(THE-285).
+
+**The two panels are the run's own frames.** `Scene.panel` screenshots whatever
+is on screen at that beat, so there is no artwork to go stale: change the
+fixture and the card follows it exactly the way the clip does. It is generated
+for the same reason the clip is — a hand-made card is correct once.
+
+**The generator is shared and the captions are not.** `lib/card.py` draws it
+and is byte-identical in all four repos; the two labels and the two detail
+lines are in `scene.py`, built out of tables the scene has already read, so no
+number on the card is missing from the clip behind it. Each string is
+auto-sized to fit its half, and one that still does not fit at the smallest
+size allowed stops the recording rather than being ellipsised in front of a
+client.
+
+**The face is vendored, and the machine's own fonts are put out of reach.**
+Auto-sizing makes the metrics load-bearing — the same HTML against a different
+face is a different card, and on a box with neither Ubuntu nor DejaVu it is a
+label overhanging the divider. So `lib/fonts.sh` fetches a pinned DejaVu,
+checks it against a literal sha256, and writes a fontconfig declaring that one
+directory and pulling in no system config; the card gets its own Chromium with
+`FONTCONFIG_FILE` pointing at it. `card.font_probe` proves that rather than
+asserting it: it measures one string under three family names, one of which is
+a family that exists nowhere, and under that config all three come back the
+same width because there is one face left to resolve to.
+`tests/test_demo_card.py` runs it both ways, because without the control arm
+the same check would pass on a machine with no fonts installed at all.
+
+**That check does not run under a plain `make test`, and a green suite is not
+it passing.** It needs three variables only `lib/playwright.sh` exports, so
+under a bare pytest it skips — and on the summary line a skip and a pass are
+the same word-shape. `./demo/record.sh` runs it by construction, and the skip
+message names the exact command otherwise. Measured on 2026-09-24: jailed, the
+three probe families come back `[683, 683, 683]`; with the jail lifted on the
+same box, `[678.9, 563.7, 683]`. The other checks in that file — the card in
+the GIF, the card in the mp4, the poster matching frame 0 — do run under `make
+test`, and the GIF one needs nothing but the standard library.
+
+The recording's own Chromium is untouched. The scene frames are drawn with the
+system stack `lib/sheet.py` names and are unchanged by this: the card is a
+prepend and an export, not a re-cut.
+
 ## Which recipe
 
 **All four pieces use Playwright today**, and the reason is the grid
@@ -137,7 +191,7 @@ Copy the whole `demo/` folder. Then change **these files and nothing else**:
 | `recipe` | One word: `playwright` or `vhs`. |
 | `setup.sh` | Two lines in practice: the import names you pass `ensure_venv`, and whatever the piece needs regenerated before recording. A non-Python piece replaces the `ensure_venv` call with its own build. Anything it deletes belongs under `--fresh` unless the piece itself owns it — every `make` target runs this file, so a wipe outside that flag is a wipe of the user's work. |
 | `demo.tape` | The VHS recipe's tape. Delete it if you only want the browser one. |
-| `scene.py` | The Playwright recipe's script: which files to open, which columns to show, what the narration says. The rendering is `lib/sheet.py` and is not yours to edit. |
+| `scene.py` | The Playwright recipe's script: which files to open, which columns to show, what the narration says, and the two labels and two detail lines of the title card. The rendering is `lib/sheet.py` and `lib/card.py` and is not yours to edit. |
 
 Leave `record.sh` and everything in `lib/` alone. If you find yourself editing
 one of those to make your piece work, the split is wrong — fix the split, do
@@ -237,6 +291,7 @@ root, versions pinned except where noted.
 | `lib/vhs.sh` | vhs, ttyd | 0.10.0, 1.7.7 | **vhs deliberately**: 0.12.x starts Chromium, captures every frame, then exits 0 having written no file at all on some Linux hosts. 0.10.0 encodes reliably. |
 | `lib/playwright.sh` | the `playwright` wheel + Chromium | 1.47.0 | The recipe this piece records with. Playwright for *Python*, not Node: the wheel ships its own driver, so a machine with no Node can still regenerate the clip. |
 | `lib/chromium-libs.sh` | the shared objects Chromium links against | — | See below. |
+| `lib/fonts.sh` | DejaVu Sans, Book and Bold | 2.37 | The title card's face. Checksum-verified against a constant in the file, and the fontconfig it writes declares only the directory it unpacked into. The card auto-sizes its labels, so the face's metrics decide the layout — "whatever `fc-list` returns on this box" is not something `make demo` can reproduce elsewhere. |
 
 `lib/uv.sh` applies the pinning rule to the *project's* toolchain, because a
 clean checkout is not a clean machine. Stock Ubuntu 24.04 has no `uv` and a

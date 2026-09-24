@@ -16,6 +16,13 @@ clean.py did not write it, `read_table` raises and there is no clip.
 
 The feed is invented. `Northwind Trading Co.` is not a company and no real
 product, vendor or client data appears here or in the recording.
+
+Ahead of beat 1, `demo/lib/card.py` prepends a 0.8 s title card composed from
+two of the frames below — the before artifact on the left, the after one on the
+right. It is not a beat: the scene is unchanged and the card is a prepend plus
+a `demo/out/poster.png` export. The two labels and the two lines of specifics
+under them are the only part of it that belongs to this piece, and they are
+just below.
 """
 
 from __future__ import annotations
@@ -45,7 +52,18 @@ CLEAN_COLUMNS = [
 REJECT_COLUMNS = ["line", "sku", "reject_rules", "reason"]
 
 
-def record(video_dir: Path) -> Path:
+# The title card's two labels. Its shape, colours and typeface are
+# demo/lib/card.py, which is shared and byte-identical in all four repos; the
+# words are here because what this piece turns its input into is a fact about
+# this piece, not about the pipeline. The line under each label is built out of
+# the run's own tables further down, so changing the fixture moves the card the
+# way it moves the clip — there is no number on the card that the clip behind
+# it does not also show.
+CARD_BEFORE_LABEL = "Messy supplier feed"
+CARD_AFTER_LABEL = "Clean .xlsx, flagged rejects"
+
+
+def record(video_dir: Path, poster: Path | None = None) -> Path:
     feed = REPO / "fixtures" / "supplier-feed.csv"
     out = REPO / "out"
 
@@ -78,7 +96,7 @@ def record(video_dir: Path) -> Path:
         "reject",
     )
 
-    with sheet.Scene(video_dir) as scene:
+    with sheet.Scene(video_dir, poster=poster) as scene:
         scene.show(
             sheet.grid_html(
                 before,
@@ -87,6 +105,11 @@ def record(video_dir: Path) -> Path:
                 kind="before",
             ),
             sheet.HOLD_BEFORE,
+        )
+        scene.panel(
+            "before", CARD_BEFORE_LABEL,
+            f"{len(before.table.rows)} rows | {len(before.table.headers)} columns"
+            " | prices, weights and stock as typed",
         )
         scene.show(
             sheet.terminal_html(
@@ -113,6 +136,17 @@ def record(video_dir: Path) -> Path:
             ),
             sheet.HOLD_AFTER / 2,
         )
+        # The Rejects sheet, not the Clean one, is the card's AFTER half: two
+        # grids of grey text read identically at thumbnail size, and this one
+        # is red. The label says .xlsx because that is the file, and the
+        # detail says what the other tab holds so the half is not just the
+        # rejects.
+        scene.panel(
+            "after", CARD_AFTER_LABEL,
+            f"{len(clean.rows)} rows import clean"
+            f" | {len(rejects.rows)} rejected, {len(flagged)} flagged"
+            " | every change logged",
+        )
 
     return scene.video_path
 
@@ -120,10 +154,12 @@ def record(video_dir: Path) -> Path:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--video-dir", required=True, type=Path)
+    parser.add_argument("--poster", type=Path,
+                        help="write the title card here as PNG (demo/lib/card.py)")
     args = parser.parse_args(argv)
 
     args.video_dir.mkdir(parents=True, exist_ok=True)
-    print(record(args.video_dir))
+    print(record(args.video_dir, args.poster))
     return 0
 
 

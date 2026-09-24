@@ -100,8 +100,16 @@ same way on the same day, so read that as this machine rather than as the
 suite. Most of the gap between these and the warm number is building the
 virtualenv.
 
+How much that machine effect is worth, measured rather than asserted: a tenth
+clone on 2026-09-24 took **69.6 s**. It is a clone of the same commit as the
+nine above — the dead-clone rows clone `HEAD`, so this one did not contain the
+title card's thirteen new tests either — so identical code ran 15 % faster than
+its own slowest sample, on a quieter box. Read every wall clock on this page
+with that width in mind, and read none of them as a comparison between two
+versions of the suite.
+
 ```bash
-make test           # the same 364 tests: 76s warm, 85s from that dead clone
+make test           # the same 377 tests: 67-77s warm, 70-86s from a dead clone
 make strict         # the same run, but exit 2 if any row was rejected
 make demo           # regenerate the clip above, headless
 make demo-terminal  # the same story recorded as a terminal session instead
@@ -118,10 +126,15 @@ toolchain, and it says so in its name.
 `make demo` is the slow one, because it renders a real browser and has to
 download a headless Chromium to do it. Measured on this machine: **26 to 27
 seconds** to re-record once the toolchain is there — 26.3, 26.4, 26.5, 26.5,
-26.6 and 27.0 s over six runs in two passes. The first run adds the Chromium
+26.6 and 27.0 s over six runs in two passes, and 27.1 s on one run after the
+title card joined both encodes. That last figure is the only like-for-like
+timing comparison on this page, because it is the one arm that really does run
+the working tree: drawing the card and prepending 0.8 s to two encodes cost
+under a second. The first run adds the Chromium
 download on top of that, which I have not timed, so the wall clock for a first
-`make demo` is the one number here I cannot give you. It leaves **760 MB** in
-`demo/.toolchain/` — 549 MB of that the unpacked Chromium — all of it inside
+`make demo` is the one number here I cannot give you. It leaves **762 MB** in
+`demo/.toolchain/` — 549 MB of that the unpacked Chromium, and 2 MB the
+typeface `demo/lib/fonts.sh` pins for the title card — all of it inside
 the repo and none of it installed system-wide. `make clean` removes it.
 
 If you would rather use your own tooling:
@@ -477,7 +490,7 @@ regression in `test_parse.py` was found.
 - **No image fetching.** It checks that an image URL is an absolute http(s)
   URL. It does not check that the image exists, is the right size, or is not a
   placeholder.
-- Tested against the bundled fixture and 364 tests. On a real feed the
+- Tested against the bundled fixture and 377 tests. On a real feed the
   honest expectation is that most rows come out clean and the rest get flagged
   or rejected rather than silently wrong. That is what the flag is for.
 
@@ -487,17 +500,29 @@ regression in `test_parse.py` was found.
 make test          # or: .venv/bin/python -m pytest -q
 ```
 
-364 tests, no network, about 75 seconds — 73.9, 74.3, 74.6, 76.0, 76.1 and
-76.9 s over six runs in two passes. Two files are most of that. The nine in
-`test_make_targets.py` run `make` in a throwaway copy of the repo, because the
-bug they cover only exists at that level, and take 32.5 seconds between them;
-the other 355 take 44.1 seconds. Run on its own, `test_workbook.py` is 19.5 s
-of that 44.1 s, because it repacks `clean.xlsx` with both clocks moved to prove
-the bytes do not follow the clock.
+377 tests, no network, **about 67 seconds** on 2026-09-24. The six runs behind
+the 75 s this used to say — 73.9, 74.3, 74.6, 76.0, 76.1 and 76.9 s in two
+passes — were the 364-test suite, before the title card brought thirteen more.
+Do not read 75 → 67 as the suite getting faster while it grew: a dead clone of
+unchanged code moved almost exactly as far on the same day, which is the
+control for it and is written up under Install. One pass, not six, so treat 67
+as a single sample.
 
-Two of the 364 skip in a dead clone — the `ffprobe` cross-check in
-`test_readme_clip.py`, which needs a toolchain `make demo` downloads. They are
-the suite's only skips and they are a cross-check, not a guard.
+Two files are most of that. The nine in
+`test_make_targets.py` run `make` in a throwaway copy of the repo, because the
+bug they cover only exists at that level, and take 26.8 seconds between them;
+the other 368 take 40.5 seconds. Run on its own, `test_workbook.py` was 19.5 s
+of the 44.1 s that row used to read — it has not been re-timed on its own since,
+so that is a share of the older number and not of the 40.5 — because it repacks
+`clean.xlsx` with both clocks moved to prove the bytes do not follow the clock.
+
+Four of the 377 skip in a dead clone: the two `ffprobe` cross-checks in
+`tests/test_readme_clip.py`, and in `tests/test_demo_card.py` the comparison of
+`demo/out/poster.png` against frame 0 of the mp4 and the proof that the title
+card's typeface is the vendored one. All four want something `make demo`
+downloads, and all four are cross-checks rather than guards: the guard each one
+backs up runs anyway, over `demo/out/demo.gif` — the file this README embeds —
+which is read end to end with nothing but the standard library.
 
 | File | Covers |
 | --- | --- |
@@ -541,7 +566,7 @@ because the clip ends on `out/clean.xlsx` open in a spreadsheet grid and only a
 browser renders one. The terminal telling is still here:
 `make demo-terminal` writes it to `demo/out-terminal/`.
 
-The clip is 18 s against a 35 s budget that `record.sh` enforces by reading the
+The clip is 19 s against a 35 s budget that `record.sh` enforces by reading the
 encoded file, so the guard is real rather than a note about not shipping a
 two-minute GIF. That sentence is itself checked:
 `tests/test_readme_clip.py` parses the two numbers out of this file and reads

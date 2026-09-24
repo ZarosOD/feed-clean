@@ -24,6 +24,8 @@ TOOLCHAIN_DIR="${TOOLCHAIN_DIR:?playwright.sh needs TOOLCHAIN_DIR}"
 
 # shellcheck source=ffmpeg.sh
 . "$(dirname "${BASH_SOURCE[0]}")/ffmpeg.sh"
+# shellcheck source=fonts.sh
+. "$(dirname "${BASH_SOURCE[0]}")/fonts.sh"
 # shellcheck source=chromium-libs.sh
 . "$(dirname "${BASH_SOURCE[0]}")/chromium-libs.sh"
 # shellcheck source=uv.sh
@@ -45,6 +47,26 @@ GIF_FPS="${GIF_FPS:-6}"
 # for. So it keeps the capture size. Empty means exactly that — no resampling.
 # Set MP4_WIDTH to a number for a piece that needs a smaller attachment.
 MP4_WIDTH="${MP4_WIDTH:-}"
+
+# What Playwright records at. Named rather than written into the filter string
+# twice, because the card's frame count is CARD_SECONDS x this and the two
+# have to be the same number.
+MP4_FPS="${MP4_FPS:-25}"
+
+# How long the title card holds at the head of both encodes. Frame 0 used to
+# be the BEFORE frame, which in three of the four pieces is a spreadsheet on
+# pale paper: at thumbnail size a viewer sees a white rectangle and does not
+# press play, and Freelancer derives a video's poster from frame 0 (THE-285).
+#
+# The card is drawn by demo/lib/card.py out of the run's own frames and lands
+# at $OUT_DIR/poster.png, beside demo.gif and demo.mp4 and with the same
+# lifetime — record.sh wipes OUT_DIR at the start of a run and this is written
+# during it, so it is regenerated, never orphaned.
+#
+# 0.8s is 20 frames on the mp4's 25fps. The GIF runs at GIF_FPS, so the same
+# 0.8s is a handful of frames there; both are ffmpeg's rounding of the same
+# number rather than two settings that could drift.
+CARD_SECONDS="${CARD_SECONDS:-0.8}"
 
 # Chromium records the page as lossy VP8, so a flat CSS colour does not arrive
 # flat. Measured inside one 56px #cdd3e4 thumbnail: 6-9 distinct values, and the
@@ -115,6 +137,7 @@ ensure_browser() {
 recipe_bootstrap() {
   mkdir -p "$TOOLCHAIN_DIR/bin"
   ensure_ffmpeg
+  ensure_card_font
   ensure_playwright_package
   ensure_browser
   vendor_chromium_libs "$(find_playwright_chromium)" || true
@@ -137,18 +160,47 @@ recipe_bootstrap() {
 # The quantiser only goes in front of the GIF. x264 spends a few bits on the
 # same noise and shrugs — measured 3% on the mp4, against 30% on the gif — so
 # the mp4 keeps the untouched picture.
+#
+# --- the title card at the head of both ---------------------------------
+#
+# Both encodes take two inputs: the card as a still, looped for CARD_SECONDS,
+# then the recording. They are joined with concat, which demands the two
+# streams agree on size, pixel format and sample aspect — hence the setsar and
+# format in each branch. The card is drawn at the capture size, so the scale
+# that fits the recording fits it too and neither is resampled differently
+# from the other.
+#
+# The scene writes the card to $out_dir/poster.png and it is also the shipped
+# cover image, so the file the viewer can be handed separately and the first
+# frame of the clip are the same render by construction, not by a copy step
+# somebody has to remember.
 encode_clip() {
-  local source="$1" out_dir="$2"
-  local filters="fps=${GIF_FPS},scale=${GIF_WIDTH}:-2:flags=lanczos"
+  local source="$1" out_dir="$2" card="$3"
+  local gif_scale="scale=${GIF_WIDTH}:-2:flags=lanczos"
+  local quant=""
+
+  if [ ! -s "$card" ]; then
+    echo "playwright.sh: the scene left no title card at $card" >&2
+    echo "  the scene must pass poster= to sheet.Scene and mark two panels" >&2
+    return 1
+  fi
 
   if [ "$GIF_QUANT" -gt 1 ]; then
     local snap="trunc(val/${GIF_QUANT})*${GIF_QUANT}"
-    filters="${filters},lutrgb=r=${snap}:g=${snap}:b=${snap}"
+    quant="lutrgb=r=${snap}:g=${snap}:b=${snap},"
   fi
 
   pw_log "encoding gif"
-  ffmpeg -nostdin -loglevel error -y -i "$source" \
-    -vf "${filters},split[a][b];[a]palettegen=max_colors=128:stats_mode=full[p];[b][p]paletteuse=dither=none" \
+  ffmpeg -nostdin -loglevel error -y \
+    -loop 1 -t "$CARD_SECONDS" -framerate "$GIF_FPS" -i "$card" \
+    -i "$source" \
+    -filter_complex "\
+      [0:v]${gif_scale},setsar=1,format=rgb24[card]; \
+      [1:v]fps=${GIF_FPS},${gif_scale},setsar=1,format=rgb24[body]; \
+      [card][body]concat=n=2:v=1[joined]; \
+      [joined]${quant}split[a][b]; \
+      [a]palettegen=max_colors=128:stats_mode=full[p]; \
+      [b][p]paletteuse=dither=none" \
     -loop 0 "$out_dir/demo.gif"
 
   pw_log "encoding mp4"
@@ -159,20 +211,30 @@ encode_clip() {
   if [ -n "$MP4_WIDTH" ]; then
     mp4_scale="scale=${MP4_WIDTH}:-2:flags=lanczos"
   fi
-  ffmpeg -nostdin -loglevel error -y -i "$source" \
-    -vf "$mp4_scale" \
+  # Playwright records at MP4_FPS already, so the fps filter is a no-op on the
+  # body and is there for the card's sake: concat wants one timebase, and
+  # 0.8s of still has to become a whole number of frames somewhere.
+  ffmpeg -nostdin -loglevel error -y \
+    -loop 1 -t "$CARD_SECONDS" -framerate "$MP4_FPS" -i "$card" \
+    -i "$source" \
+    -filter_complex "\
+      [0:v]${mp4_scale},setsar=1,format=yuv420p[card]; \
+      [1:v]fps=${MP4_FPS},${mp4_scale},setsar=1,format=yuv420p[body]; \
+      [card][body]concat=n=2:v=1[v]" \
+    -map "[v]" \
     -c:v libx264 -pix_fmt yuv420p -crf 26 -preset veryfast \
     -movflags +faststart "$out_dir/demo.mp4"
 }
 
 recipe_record() {
-  local out_dir="$1" raw="$1/raw" py scene
+  local out_dir="$1" raw="$1/raw" py scene card
   scene="${SCENE:-$DEMO_DIR/scene.py}"
   [ -f "$scene" ] || { echo "playwright.sh: no scene at $scene" >&2; return 1; }
   py="$(pw_python)"
+  card="$out_dir/poster.png"
 
   mkdir -p "$raw"
-  ( cd "$REPO_ROOT" && "$py" "$scene" --video-dir "$raw" )
+  ( cd "$REPO_ROOT" && "$py" "$scene" --video-dir "$raw" --poster "$card" )
 
   local source
   source="$(find "$raw" -name '*.webm' -type f | head -1)"
@@ -181,7 +243,7 @@ recipe_record() {
     return 1
   fi
 
-  encode_clip "$source" "$out_dir"
+  encode_clip "$source" "$out_dir" "$card"
   rm -rf "$raw"
   RECIPE_CLIP="$out_dir/demo.gif"
 }

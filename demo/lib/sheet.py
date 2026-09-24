@@ -50,9 +50,22 @@ from __future__ import annotations
 
 import csv
 import subprocess
+import sys
 from dataclasses import dataclass, field, replace
 from html import escape
 from pathlib import Path
+
+# card.py is the sibling that draws the title card. This directory goes on
+# sys.path first because tests/test_demo_sheet.py loads *this* file with
+# importlib.util.spec_from_file_location, which puts nothing on sys.path — a
+# plain `import card` would then be an ImportError in the one place the suite
+# imports sheet.py at all. scene.py has already done the same insert; the
+# guard keeps it to one entry.
+_LIB = Path(__file__).resolve().parent
+if str(_LIB) not in sys.path:
+    sys.path.insert(0, str(_LIB))
+
+import card  # noqa: E402
 
 # 16:9, which is what a proposal gallery and a README both want. Every piece
 # uses this one size so the four clips cut together.
@@ -784,20 +797,30 @@ def terminal_html(
 class Scene:
     """A Playwright page that records video, driven one beat at a time.
 
-        with Scene(video_dir) as scene:
+        with Scene(video_dir, poster=out / "poster.png") as scene:
             scene.show(grid_html(...), HOLD_BEFORE)
+            scene.panel("before", "Messy supplier feed", "318 rows | 21 columns")
             scene.show(terminal_html(...), HOLD_COMMAND)
             scene.show(grid_html(...), HOLD_AFTER)
+            scene.panel("after", "Clean .xlsx", "every change logged")
         print(scene.video_path)
 
     `show` renders a string with `set_content`, so a frame needs no web server.
     `goto` is there for the one piece whose BEFORE really is a served page.
+
+    `panel` grabs whatever is on screen right now for the title card, and on
+    the way out the two panels become `poster` — see demo/lib/card.py. A scene
+    given no `poster` collects nothing and behaves exactly as it did before.
     """
 
-    def __init__(self, video_dir: Path, viewport: dict | None = None) -> None:
+    def __init__(self, video_dir: Path, viewport: dict | None = None,
+                 poster: str | Path | None = None) -> None:
         self.video_dir = Path(video_dir)
         self.viewport = viewport or VIEWPORT
         self.video_path: Path | None = None
+        self.poster = Path(poster) if poster else None
+        self.poster_path: Path | None = None
+        self.panels: list[card.Panel] = []
 
     def __enter__(self) -> "Scene":
         from playwright.sync_api import sync_playwright
@@ -822,8 +845,48 @@ class Scene:
         self.page.goto(url, wait_until="networkidle")
         self.page.wait_for_timeout(hold * 1000)
 
+    def panel(self, tone: str, label: str, detail: str, *,
+              selector: str | None = card.ARTIFACT) -> None:
+        """Keep this beat as one half of the title card.
+
+        Called *after* the `show`/`goto` whose frame it wants, so the panel is
+        a screenshot of a frame the clip really contains rather than of a page
+        built for the card. `selector=None` shoots the whole viewport, which is
+        what a piece whose frame is a served page wants; the default shoots the
+        artifact inside a sheet.py frame and leaves the narration bar out.
+
+        Exactly two panels, "before" then "after" — card.py draws two halves
+        and a scene that offered three would have to decide which to drop, a
+        decision that belongs in the scene where the beats are.
+        """
+        if self.poster is None:
+            return
+        if len(self.panels) == 2:
+            raise ValueError(
+                "Scene.panel: the title card has two halves and both are "
+                f"already taken ({self.panels[0].tone}, {self.panels[1].tone})"
+            )
+        target = self.page if selector is None else self.page.locator(selector).first
+        self.panels.append(
+            card.Panel(tone=tone, label=label, detail=detail,
+                       png=target.screenshot(type="png"))
+        )
+
     def __exit__(self, *exc) -> None:
         self.video_path = Path(self.page.video.path())
         self._context.close()
         self._browser.close()
         self._playwright.stop()
+        # After the recording browser is gone, not before: the card gets its
+        # own Chromium with a different font configuration (card.py explains
+        # why), and two live browsers for no reason is two things to leak.
+        if exc[0] is None and self.poster is not None:
+            if len(self.panels) != 2:
+                raise ValueError(
+                    f"Scene: poster={self.poster} was asked for but the scene "
+                    f"marked {len(self.panels)} panel(s); the card needs two, "
+                    "a before and an after"
+                )
+            before, after = self.panels
+            self.poster_path = card.write(before, after, self.poster,
+                                          viewport=self.viewport)

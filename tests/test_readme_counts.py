@@ -28,8 +28,8 @@ What this guards, exactly:
   * the node ids pytest lists and the total pytest reports agree with each
     other (two counts of the same thing, because a reader that silently
     answers zero is worse than one that raises);
-  * the "two of which skip in a dead clone" sentence names the number of
-    ffprobe cross-check tests, found by node id rather than restated;
+  * the "four of which skip in a dead clone" sentence names the number of
+    tests that need a toolchain, found by node id rather than restated;
   * any per-file claim ("the nine in `test_make_targets.py`") equals that
     file's collected count — feed-clean is the only one of the four that makes
     one today, and the parser is pinned on synthetic text so it is proved in
@@ -44,15 +44,23 @@ What it cannot see, said out loud:
     matching one fails rather than quietly guarding nothing. A genuinely
     deleted sentence means deleting its entry here, on purpose, in the same
     commit.
-  * **Whether two is really all that skips in a dead clone.** Only a dead
+  * **Whether four is really all that skips in a dead clone.** Only a dead
     clone can answer that. Each suite has five other conditional skips — bash
     missing (test_demo_fetch.py, test_demo_outputs.py), make or .venv missing
     (test_make_targets.py), openpyxl missing (test_workbook.py or
     test_index.py) — and none of them fires on a machine that got through
-    `make setup`, which is why the measured dead-clone runs skip two. That is
+    `make setup`, which is why the measured dead-clone runs skip four. That is
     a property of the machine, not of this file, and this file does not claim
-    it. It checks the number in the sentence against the cross-check's own
-    parametrised count.
+    it. It checks the number in the sentence against the collected count of
+    the tests named in TOOLCHAIN_SKIPS.
+
+    **TOOLCHAIN_SKIPS is a declared list and nothing discovers it**, which is
+    the same weakness SHARED_ROOT has one directory over: a new test that
+    skips without a toolchain is invisible here until someone adds its node
+    id. It was two entries and one file until THE-285 added the title card,
+    and the sentence in four READMEs saying "they are the suite's only skips"
+    was false the moment the second file appeared. Adding an entry is one
+    line; noticing that one is missing is a dead-clone run.
 
 tools/demo_lib_drift.py holds the four copies of this file identical, from its
 SHARED_ROOT list (THE-274). That list is declared rather than discovered, so a
@@ -73,13 +81,22 @@ import pytest
 REPO = Path(__file__).resolve().parent.parent
 README = REPO / "README.md"
 
-# The tests the READMEs mean by "two of which skip in a dead clone": the
-# ffprobe cross-check in test_readme_clip.py, which needs a toolchain `make
-# demo` downloads. Named as a node-id prefix, so the count comes out of
-# collection instead of being restated here, and so renaming that test fails
-# this file loudly (test_the_cross_check_this_counts_still_exists) instead of
-# freeing its own guard.
-CROSS_CHECK = "tests/test_readme_clip.py::test_the_readers_agree_with_ffprobe"
+# The tests the READMEs mean by "four of which skip in a dead clone": the ones
+# that want something `make demo` downloads.
+# Every test that skips for want of a toolchain, as node-id prefixes. The
+# count comes out of collection rather than being restated here, so a
+# parametrised test contributes however many cases it really has, and renaming
+# one fails this file loudly (test_every_toolchain_skip_still_exists) instead
+# of freeing its own guard.
+TOOLCHAIN_SKIPS = (
+    # Needs ffprobe. Parametrised over the gif and the mp4, so this one prefix
+    # is two collected tests, and adding a third encode moves the README.
+    "tests/test_readme_clip.py::test_the_readers_agree_with_ffprobe",
+    # Needs ffmpeg to decode H.264: the poster against frame 0 of the mp4.
+    "tests/test_demo_card.py::test_the_mp4_frame_zero_is_the_poster",
+    # Needs the vendored Chromium and the vendored face.
+    "tests/test_demo_card.py::test_the_card_font_is_jailed",
+)
 
 # Number words these READMEs actually use in a count claim, plus the digits.
 # Narrow on purpose: only a numeric claim matches the per-file and skip
@@ -297,28 +314,32 @@ def test_the_readme_states_the_dead_clone_skip_count_exactly_once() -> None:
     )
 
 
-def test_the_skip_count_is_the_ffprobe_cross_checks_own_count() -> None:
-    """The cross-check is parametrised over the gif and the mp4, so "two" is
-    not a constant anyone typed — it is that test's collected count, and adding
-    a third encode should move the README rather than pass quietly."""
+def test_the_skip_count_is_the_toolchain_skips_own_count() -> None:
+    """"Four" is not a constant anyone typed — it is what TOOLCHAIN_SKIPS
+    collects. The first entry is parametrised over the gif and the mp4, so
+    adding a third encode moves the README rather than passing quietly."""
     _, ids = collected()
-    actual = sum(1 for node in ids if node.startswith(CROSS_CHECK))
+    actual = sum(1 for node in ids
+                 if any(node.startswith(p) for p in TOOLCHAIN_SKIPS))
     found = SKIPS.findall(README.read_text(encoding="utf-8"))
     assert number(found[0][0]) == actual, (
-        f"README.md says {found[0][0]} test(s) skip in a dead clone; the ffprobe "
-        f"cross-check it names collects {actual}."
+        f"README.md says {found[0][0]} test(s) skip in a dead clone; the tests "
+        f"TOOLCHAIN_SKIPS names collect {actual}."
     )
 
 
-def test_the_cross_check_this_counts_still_exists() -> None:
+def test_every_toolchain_skip_still_exists() -> None:
     """A test that no longer exists collects zero, and zero would agree with a
-    README that had dropped the sentence — so the prefix is checked for
-    directly. A rename here is a rename of the thing the README describes."""
+    README that had dropped the sentence — so each prefix is checked for
+    directly, one at a time rather than as a total. A rename here is a rename
+    of something the READMEs describe."""
     _, ids = collected()
-    assert any(node.startswith(CROSS_CHECK) for node in ids), (
-        f"no test collects under {CROSS_CHECK}. If it was renamed, rename "
-        f"CROSS_CHECK; if it was deleted, the READMEs' skip sentence is now "
-        f"false in all four repos."
+    missing = [p for p in TOOLCHAIN_SKIPS
+               if not any(node.startswith(p) for node in ids)]
+    assert not missing, (
+        f"nothing collects under {missing}. If it was renamed, rename it in "
+        f"TOOLCHAIN_SKIPS; if it was deleted, the READMEs' skip sentence is "
+        f"now wrong in all four repos."
     )
 
 
