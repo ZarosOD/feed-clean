@@ -59,7 +59,20 @@ Two limits, both deliberate:
     every row that selected it was supposed to let a reader catch that; it did
     not, because printing your inputs is not the same as anyone checking them.
     So a hull more than HULL_RATIO_LIMIT times wider than its own floor is now
-    `WIDE` and needs a human. Split the sentence; do not raise the limit.
+    `WIDE` and needs a human.
+
+    **`WIDE` is the last resort, not the fix.** A row whose every verdict is
+    "too wide to mean anything" scores exactly what no row scores, and the two
+    size rows below spent their whole life there: every README states the
+    toolchain size, the Chromium size and the typeface size in one sentence, so
+    both rows got a 2-762 MB hull, and both reported `WIDE` on all four repos
+    from the day this file was written until THE-315 went looking. 760-vs-762
+    drifted past them (THE-312) with the guard sitting right there saying so.
+    The fix was neither raising the limit nor rewording four published READMEs:
+    it was giving each row a `numbers` pattern anchored on the phrase its own
+    figure is bound to, so the hull is that figure's own spread across the
+    places the README repeats it. Reach for that first; `WIDE` is for a chunk
+    no pattern can take apart.
   * **A reworded claim and a deleted claim look identical to a regex.** So
     CLAIMED_AT_BIRTH records which rows each README stated when this file was
     written, and a row that stops matching is reported `MISSING`, not `n/a`.
@@ -137,6 +150,84 @@ SECONDS = (r"(\d+(?:\.\d+)?)(?=\s*(?:s\b|secs?\b|seconds?\b)"
 MEGABYTES = r"(\d+(?:\.\d+)?)\s*MB\b"
 COUNT_OF_TESTS = r"(\d+) tests\b"
 
+# The re-record row, which is SECONDS minus one figure that is not a wall
+# clock. THE-305 closed that sentence in all four READMEs with "drawing the
+# card and prepending 0.8 s to two encodes cost less than the spread between
+# the six" — a duration *added to* an encode, in the middle of a list of
+# re-record times. It took catalog-watch's demo-warm hull to 0.8-30 s and
+# pdf-to-csv's to 0.8-26, so both have reported WIDE since that clause was
+# written. Same defect as the two size rows, one row over, found by the same
+# pass (THE-315).
+#
+# The second lookbehind is not decoration. Blocking the start of "0.8" alone
+# leaves the scanner free to start again at "8", which the list-separator
+# alternatives happily accept — a near-miss pin that reads 8 instead of
+# nothing is worse than the figure it was written to exclude.
+DEMO_SECONDS = r"(?<!prepending )(?<![\d.])" + SECONDS
+
+# The two size rows cannot use MEGABYTES, and that is the whole of THE-315.
+# Every one of these READMEs states the toolchain figure, the Chromium figure
+# and the typeface figure in a single sentence, so a row that took every MB
+# figure out of the chunk it selected came out with a 2-762 MB hull — 381x —
+# and reported WIDE. Both rows, all four repos, since birth.
+#
+# So each pattern below names the phrase its own figure is bound to, and the
+# run of characters between figure and phrase refuses to step over a *different*
+# MB figure on the way. Proximity alone is not enough in this prose, measured on
+# the six READMEs that state these numbers: "adds 24 MB more to the same
+# directory and a second Chromium" puts an unrelated figure 40 characters from
+# the word Chromium, and "549 MB of the 762 MB" puts two of them inside one
+# clause.
+_NO_OTHER_FIGURE = r"(?:(?!\d+(?:\.\d+)?\s*MB).)"
+
+# The same run, and it may not cross the word Chromium either. Blocking on the
+# intervening *figure* alone is only safe while that figure is there: delete
+# the toolchain number from inbox-filer's table cell and the row's anchor
+# reaches straight past "the unpacked Chromium" to the 2 MB typeface, so a
+# deleted claim comes back as "two different numbers are stated for the
+# toolchain size" — a finding in the right file wearing a sentence that is not
+# true. Found by the house arm's deletion test, which is the only place a
+# claim gets removed (THE-315).
+_NOR_PAST_CHROMIUM = r"(?:(?!\d+(?:\.\d+)?\s*MB)(?!chromium).)"
+
+# What `make demo` leaves in `demo/.toolchain/`. Six sites state it and they
+# state it four ways: the figure before the directory it names ("**762 MB** in
+# `demo/.toolchain/`", "762 MB inside ...", "762 MB that `make demo` alone
+# leaves in ..."), or after the word it belongs to ("`make demo` toolchain |
+# 762 MB", "The Playwright toolchain — what `make demo` alone leaves —
+# measures 762 MB", "What `make demo` leaves is 762 MB").
+#
+# The lookbehind is load-bearing: without it the second alternative fires on
+# the very `demo/.toolchain/` the first one read *backwards* from, and then
+# picks up the 549 that follows it — the same sentence yielding both figures
+# again, one pattern later.
+TOOLCHAIN_MEGABYTES = (
+    r"(\d+(?:\.\d+)?)\s*MB\**" + _NOR_PAST_CHROMIUM + r"{0,60}?demo/\.toolchain"
+    r"|(?:(?<!demo/\.)toolchain|leaves)"
+    + _NOR_PAST_CHROMIUM + r"{0,60}?(\d+(?:\.\d+)?)\s*MB"
+)
+
+# The unpacked Chromium inside it: "549 MB of that the unpacked Chromium",
+# "549 MB is the unpacked Chromium", and inbox-filer's second statement, which
+# names the download rather than the unpacked tree — "the Chromium download on
+# top ... it lands as 549 MB of the 762 MB".
+#
+# `unpacked Chromium`, never a bare `Chromium`: every one of these sentences
+# ends on "and a second Chromium under `~/.cache/rod`", which sits a few dozen
+# characters after a 24 MB that belongs to the terminal recipe and to no row
+# here at all.
+#
+# The second alternative needs both halves — the anchor *and* an exact "lands
+# as <figure>" — for the reason the toolchain pattern may not cross the word
+# Chromium: with the anchor alone, deleting that sentence's own figure lets it
+# reach the toolchain figure four words later and report a deletion as a
+# disagreement.
+CHROMIUM_MEGABYTES = (
+    r"(\d+(?:\.\d+)?)\s*MB\**" + _NO_OTHER_FIGURE + r"{0,20}?unpacked Chromium"
+    r"|Chromium\s+download" + _NO_OTHER_FIGURE
+    + r"{0,60}?lands\s+as\s+(\d+(?:\.\d+)?)\s*MB"
+)
+
 
 class Row:
     """One measurable claim: how to measure it, and where the README states it.
@@ -144,14 +235,23 @@ class Row:
     `select` picks chunks; `numbers` pulls figures out of the chunks selected.
     Both are searched case-insensitively. `cost` is a human hint printed by
     --list so nobody starts a four-minute row expecting a second.
+
+    `select` is optional, and a row that leaves it out is claiming that its
+    `numbers` pattern is already the selector — it names a phrase, not a bare
+    figure, so a chunk it reads a figure out of is by construction a chunk
+    about this row. Writing a second pattern for those rows would buy one more
+    place for the two to disagree, which is what a coarse `select` around a
+    precise `numbers` already is.
     """
 
-    def __init__(self, key, title, unit, cost, select, numbers, exact=False):
+    def __init__(self, key, title, unit, cost, numbers, select=None,
+                 exact=False):
         self.key = key
         self.title = title
         self.unit = unit
         self.cost = cost
-        self.select = re.compile(select, re.IGNORECASE | re.DOTALL)
+        self.select = (re.compile(select, re.IGNORECASE | re.DOTALL)
+                       if select is not None else None)
         self.numbers = re.compile(numbers, re.IGNORECASE)
         self.exact = exact  # deterministic: equality, not a hull
 
@@ -180,11 +280,14 @@ ROWS = [
         numbers=SECONDS),
     Row("demo-warm", "`make demo`, toolchain warm", "s", "~25 s per repeat",
         select=r"re-record|(?=.*make demo)(?=.*warm).*",
-        numbers=SECONDS),
+        numbers=DEMO_SECONDS),
+    # No `select`: see Row's docstring and the two patterns above. The old
+    # pair took any chunk saying "toolchain" and "MB" and then read *every* MB
+    # figure in it, which is how both rows shipped reporting WIDE (THE-315).
     Row("toolchain-size", "`demo/.toolchain/`", "MB", "instant",
-        select=r"(?=.*toolchain)(?=.*MB).*", numbers=MEGABYTES),
+        numbers=TOOLCHAIN_MEGABYTES),
     Row("chromium-size", "the unpacked Chromium inside it", "MB", "instant",
-        select=r"(?=.*chromium)(?=.*MB).*", numbers=MEGABYTES),
+        numbers=CHROMIUM_MEGABYTES),
     Row("venv-size", "`.venv`", "MB", "instant",
         select=r"(?=.*\.venv)(?=.*MB).*", numbers=MEGABYTES),
 ]
@@ -199,11 +302,20 @@ BY_KEY = {row.key: row for row in ROWS}
 # and passed. The claim was wrong by 17x and the tool said ok.
 #
 # 4 is a threshold, not a derivation, and it is chosen with the quantifier
-# written down: the widest hull any *legitimate* shared chunk produced across
-# the four READMEs is 760/549 = 1.38x (toolchain and Chromium in one sentence),
-# and the next widest is 78/72 = 1.08x. 4 sits well clear of every real one and
-# well under the 112x that hid the defect. Move it if a real claim ever trips
-# it — but split the sentence first.
+# written down. The first version of this comment derived it from the widest
+# *legitimate* shared chunk being 760/549 = 1.38x — the toolchain and Chromium
+# figures in one sentence — which was the wrong quantifier twice over: the pair
+# it named was not legitimate at all (both rows read all three of that
+# sentence's figures and both reported WIDE from birth, THE-315), and the
+# figure went stale at THE-312.
+#
+# Re-derived 2026-09-24, over every row every one of the four READMEs claims,
+# parse-only: the widest hull is feed-clean's test-split at 40.5/26.8 = 1.51x,
+# then inbox-filer's test-dead at 21/14.3 = 1.47x, and nothing else clears
+# 1.30x. So 4 sits clear of every real claim by better than 2.5x and well under
+# the 112x that hid the `.venv` defect. Move it if a real claim ever trips it —
+# but anchor the row's `numbers` on its own figure first; that is what a WIDE
+# verdict is nearly always telling you.
 HULL_RATIO_LIMIT = 4
 
 # Which rows each README stated a figure for on 2026-09-23, when this file was
@@ -276,14 +388,27 @@ def _sentences(lines, start):
             for part in re.split(r"(?<=[.!?])\s+", joined) if part.strip()]
 
 
+def figures_in(pattern, text):
+    """[figures] — every number `pattern` captures in `text`, left to right.
+
+    A pattern that anchors its figure on the left in one alternative and on the
+    right in the other cannot put the capture in a single group, and findall()
+    starts returning a tuple per match the moment a pattern has two. The figure
+    is whichever group matched; the empty half of the tuple is not a zero.
+    """
+    return [float(next(g for g in match.groups() if g is not None))
+            for match in pattern.finditer(text)]
+
+
 def claims(row, text):
     """[(line number, chunk, [figures])] for every chunk stating this row."""
     found = []
     for number, chunk in chunks(text):
-        if row.select.search(chunk):
-            figures = [float(m) for m in row.numbers.findall(chunk)]
-            if figures:
-                found.append((number, chunk, figures))
+        if row.select is not None and not row.select.search(chunk):
+            continue
+        figures = figures_in(row.numbers, chunk)
+        if figures:
+            found.append((number, chunk, figures))
     return found
 
 
@@ -298,6 +423,66 @@ def claims(row, text):
 # use plus the near-misses, and `main` runs this before it measures anything: a
 # reader that is wrong makes every row below it wrong in a way the row cannot
 # see.
+
+# The six sentences that state the toolchain and Chromium sizes, one per
+# wording, gathered from the four top-level READMEs and the two demo/README.md
+# files that repeat them. Each must yield exactly one figure to each of the two
+# patterns — that pair of assertions is the whole of THE-315, because the
+# defect was one sentence answering both rows with all three of its numbers.
+#
+# The figures here are deliberately numbers none of these repos claims. A pin
+# is a statement about the *pattern*; one carrying the live figure would make
+# this file another place to edit the next time the toolchain is re-measured,
+# and another place to get it wrong.
+TOOLCHAIN_PROSE = (
+    # catalog-watch/README.md, feed-clean/README.md
+    "It leaves **700 MB** in `demo/.toolchain/` — 500 MB of that the unpacked "
+    "Chromium, and 3 MB the typeface `demo/lib/fonts.sh` pins for the title "
+    "card — all of it inside the repo and none of it installed system-wide.",
+    # pdf-to-csv/README.md
+    "`make demo` leaves 700 MB inside `demo/.toolchain/` — 500 MB of that the "
+    "unpacked Chromium, and 3 MB the typeface `demo/lib/fonts.sh` pins for the "
+    "title card — none of it installed system-wide.",
+    # inbox-filer/README.md, a table row rather than a sentence
+    "| `make demo` toolchain | 700 MB, of which 500 MB is the unpacked "
+    "Chromium and 3 MB the pinned title-card typeface. `make demo-terminal` "
+    "adds 20 MB to the same directory and a second Chromium under "
+    "`~/.cache/rod`. |",
+    # catalog-watch/demo/README.md
+    "The Playwright toolchain — what `make demo` alone leaves — measures "
+    "700 MB, 500 MB of it the unpacked Chromium; `make demo-terminal` puts "
+    "20 MB more in the same directory (`vhs` and `ttyd`) on top of that second "
+    "Chromium.",
+    # pdf-to-csv/demo/README.md
+    "What `make demo` leaves is 700 MB, 500 MB of it the unpacked Chromium, "
+    "all inside the repo; `make demo-terminal` adds 20 MB more to the same "
+    "directory and a second Chromium under `~/.cache/rod`, which is outside "
+    "it.",
+    # inbox-filer/README.md again, 40 lines further down: the only wording that
+    # names the download instead of the unpacked tree, and the only one that
+    # puts both figures in one clause.
+    "the first run adds the Chromium download on top, which I have not timed "
+    "— it lands as 500 MB of the 700 MB that `make demo` alone leaves in "
+    "`demo/.toolchain/`, but the download wall clock is not a number I can "
+    "give you.",
+)
+
+# Prose that holds an MB figure and is not one of the two claims. The first is
+# the sentence that follows five of the six above, and it is the reason the
+# Chromium pattern names the *unpacked* Chromium: a bare `Chromium` sits a few
+# dozen characters from a figure that belongs to neither row.
+NOT_A_TOOLCHAIN_CLAIM = (
+    "That is the Playwright recipe alone; `make demo-terminal` adds 20 MB "
+    "more to the same directory and a second Chromium under `~/.cache/rod`.",
+    "| `.venv` | 110 MB |",
+    "`make clean` removes `demo/.toolchain/`.",
+    # projects/demos/ocr-scan-to-csv/README.md. A different piece, a different
+    # recipe and a different browser tree, so neither pattern may read it —
+    # nothing in this repo runs against that file, but the house's cross-copy
+    # arm reads every README through these same two patterns.
+    "The first run also downloads headless Chromium (~150 MB), which I have "
+    "not timed.",
+)
 
 PATTERN_PINS = [
     # (pattern, text, expected figures)
@@ -327,6 +512,37 @@ PATTERN_PINS = [
     (MEGABYTES, "760 seconds is not a size", []),
     (COUNT_OF_TESTS, "364 tests, no network, about 72 seconds", [364]),
     (COUNT_OF_TESTS, "318 rows of an invented supplier's weekly export", []),
+    # The re-record sentence, whole, in the shape THE-305 left it. SECONDS
+    # reads nine figures out of it and the last one is the title card, not a
+    # run; DEMO_SECONDS reads the eight that are runs. Both are pinned, because
+    # the interesting assertion is the difference between them.
+    (SECONDS, "Measured on this machine: **28 to 30 seconds** to re-record "
+              "once the toolchain is there — 28.1, 28.2, 28.4, 28.5, 29.8 and "
+              "29.8 s over six runs in two passes, and 29.3 s on one run after "
+              "the title card joined both encodes, which is inside that range: "
+              "drawing the card and prepending 0.8 s to two encodes cost less "
+              "than the spread between the six.",
+              [30, 28.1, 28.2, 28.4, 28.5, 29.8, 29.8, 29.3, 0.8]),
+    (DEMO_SECONDS, "Measured on this machine: **28 to 30 seconds** to "
+                   "re-record once the toolchain is there — 28.1, 28.2, 28.4, "
+                   "28.5, 29.8 and 29.8 s over six runs in two passes, and "
+                   "29.3 s on one run after the title card joined both "
+                   "encodes, which is inside that range: drawing the card and "
+                   "prepending 0.8 s to two encodes cost less than the spread "
+                   "between the six.",
+                   [30, 28.1, 28.2, 28.4, 28.5, 29.8, 29.8, 29.3]),
+    # The lookbehind that stops the scanner resuming inside the figure it just
+    # refused. Without `(?<![\d.])` this reads [8].
+    (DEMO_SECONDS, "prepending 0.8 s to two encodes", []),
+] + [
+    (pattern, text, expected)
+    for pattern, expected in ((TOOLCHAIN_MEGABYTES, [700]),
+                              (CHROMIUM_MEGABYTES, [500]))
+    for text in TOOLCHAIN_PROSE
+] + [
+    (pattern, text, [])
+    for pattern in (TOOLCHAIN_MEGABYTES, CHROMIUM_MEGABYTES)
+    for text in NOT_A_TOOLCHAIN_CLAIM
 ]
 
 
@@ -355,11 +571,20 @@ def selftest():
     """[] when the patterns still read what they were written to read."""
     broken = []
     for pattern, text, expected in PATTERN_PINS:
-        found = [float(f) for f in re.findall(pattern, text, re.IGNORECASE)]
+        found = figures_in(re.compile(pattern, re.IGNORECASE), text)
         if found != [float(e) for e in expected]:
             broken.append("  %r\n    wanted %s, read %s"
                           % (shorten(text, 88), expected, found))
     for key, text, expected in SELECT_PINS:
+        if BY_KEY[key].select is None:
+            # Not an AttributeError three frames down: a select pin on a row
+            # that answers with `numbers` alone is a pin asserting nothing, and
+            # the way it arrives is somebody narrowing a row and leaving its
+            # old pins behind.
+            broken.append("  %r\n    pins the `select` of %r, which has none — "
+                          "pin its `numbers` in PATTERN_PINS instead"
+                          % (shorten(text, 88), key))
+            continue
         hit = BY_KEY[key].select.search(text) is not None
         if hit != expected:
             broken.append("  %r\n    %s should %sbe claimed by %r"
@@ -552,13 +777,37 @@ def warm_demo():
             pass                                   # it — never rmtree.
 
 
-def megabytes(path):
+# `make demo-terminal` installs exactly these two into demo/.toolchain/bin
+# (demo/lib/vhs.sh), and every one of these READMEs says so in the sentence
+# right after the one the toolchain row checks: "That is the Playwright recipe
+# alone; `make demo-terminal` adds 24 MB more to the same directory."
+#
+# So on any box that has ever recorded a terminal clip, a bare `du -sm
+# demo/.toolchain` measures *both* recipes and the row reports REVIEW against a
+# correct README. Measured, not theorised: catalog-watch on this box came out
+# 785 MB against a claim of 762, and the 23 MB of difference was bin/vhs and
+# bin/ttyd (THE-315).
+#
+# Excluded at `du` level rather than subtracted afterwards. Two `du -sm`
+# figures are each rounded to a whole MB before they reach me, and a difference
+# of two rounded numbers is not a measurement.
+TERMINAL_RECIPE_BINARIES = ("vhs", "ttyd")
+
+
+def megabytes(path, exclude=()):
     """`du -sm`, which is what the READMEs' MB figures were measured with."""
     if not path.exists():
         raise Skip("%s is not here" % path.relative_to(REPO))
-    out = subprocess.run(["du", "-sm", str(path)], check=True,
-                         stdout=subprocess.PIPE, text=True).stdout
-    return float(out.split()[0])
+    argv = ["du", "-sm"] + ["--exclude=" + name for name in exclude] + [str(path)]
+    proc = subprocess.run(argv, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, text=True)
+    if proc.returncode != 0:
+        # A Skip and not a traceback, but still not a pass: --exclude is GNU
+        # du's, and a box whose du does not take it must be told that this row
+        # would have measured the wrong thing rather than shown a number.
+        raise Skip("`%s` exited %d: %s"
+                   % (" ".join(argv), proc.returncode, proc.stderr.strip()))
+    return float(proc.stdout.split()[0])
 
 
 def chromium_dir():
@@ -590,7 +839,8 @@ MEASURE = {
     "run-dead": in_a_dead_clone("run"),
     "test-dead": in_a_dead_clone("test"),
     "demo-warm": warm_demo,
-    "toolchain-size": lambda: megabytes(REPO / "demo" / ".toolchain"),
+    "toolchain-size": lambda: megabytes(REPO / "demo" / ".toolchain",
+                                        exclude=TERMINAL_RECIPE_BINARIES),
     "chromium-size": lambda: megabytes(chromium_dir()),
     "venv-size": lambda: megabytes(REPO / ".venv"),
 }
