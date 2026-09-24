@@ -573,6 +573,12 @@ two-minute GIF. That sentence is itself checked:
 the duration back off the committed `demo/out/demo.gif` and `demo/out/demo.mp4`,
 so a re-record that moves the clip and leaves the README behind fails the suite.
 
+`record.sh` also refuses a take whose encodes do not *end* on the held final
+shot. `demo/lib/lastframe.py` decodes each encode from the first frame and
+requires the last second to be one picture, which is what catches a leaked
+capture frame landing on the frame a player holds after playback stops — the
+frame that is left on screen, and the one nothing used to check.
+
 **The AFTER frame is the real file.** The scene runs `clean.py`, then opens the
 workbook that run wrote and reads it off disk. It is not a fixture, not a
 re-typed table, and not a CSV pretty-printed into something spreadsheet-shaped —

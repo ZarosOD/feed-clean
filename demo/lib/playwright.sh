@@ -224,6 +224,37 @@ encode_clip() {
     -map "[v]" \
     -c:v libx264 -pix_fmt yuv420p -crf 26 -preset veryfast \
     -movflags +faststart "$out_dir/demo.mp4"
+
+  check_endings "$source" "$out_dir"
+}
+
+# Both encodes have to end on the held AFTER shot, and neither used to be
+# checked: the defect that opened THE-295 was one frame out of 483, it survived
+# the duration check, the file-size report and two reviews, and it was the
+# frame a player holds after playback stops. demo/lib/lastframe.py says what
+# "ends on a held shot" means in assertable terms.
+#
+# The capture size is asserted on the mp4 because MP4_WIDTH is empty by default
+# and the mp4 is then supposed to be exactly what Playwright recorded; the GIF
+# is deliberately resampled, so only its width is a stated number.
+check_endings() {
+  local source="$1" out_dir="$2" py capture_w capture_h
+  py="$(pw_python)" || return 1
+
+  capture_w="$(ffprobe -v error -select_streams v:0 -show_entries stream=width \
+    -of csv=p=0 "$source")"
+  capture_h="$(ffprobe -v error -select_streams v:0 -show_entries stream=height \
+    -of csv=p=0 "$source")"
+
+  pw_log "checking both encodes end on the held shot"
+  local checker="$(dirname "${BASH_SOURCE[0]}")/lastframe.py"
+
+  if [ -n "$MP4_WIDTH" ]; then
+    "$py" "$checker" "$out_dir/demo.mp4" --width "$MP4_WIDTH"
+  else
+    "$py" "$checker" "$out_dir/demo.mp4" --width "$capture_w" --height "$capture_h"
+  fi
+  "$py" "$checker" "$out_dir/demo.gif" --width "$GIF_WIDTH"
 }
 
 recipe_record() {

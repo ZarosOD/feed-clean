@@ -794,6 +794,41 @@ def terminal_html(
 # --------------------------------------------------------------------------
 
 
+@dataclass(frozen=True)
+class _Beat:
+    """One `show`/`goto` — where the beat came from, and how long it held."""
+
+    kind: str       # "html" for set_content, "url" for goto
+    source: str
+    hold: float
+
+
+@dataclass(frozen=True)
+class _Mark:
+    """A beat the scene asked to keep for the title card, not yet shot.
+
+    `dom` is the *serialised page* as it stood when `panel()` was called, not
+    `beat.source`. The two are the same thing only when the beat's source is
+    the whole truth about what is on screen, and for one of the five pieces it
+    is not: catalog-watch `goto`s a served page and then paints the narration
+    bar with `add_style_tag`/`evaluate` and the change highlights with a second
+    `evaluate`. Replaying the URL re-fetched the bare storefront, so the card's
+    AFTER half came out identical to its BEFORE half under a caption reading
+    "Every change, marked" (THE-303).
+
+    `page.content()` is a DOM read, not a raster: it never touches the capture
+    surface, which is the thing that leaked frames into the video. Controlled,
+    not assumed -- see the class docstring.
+    """
+
+    tone: str
+    label: str
+    detail: str
+    selector: str | None
+    beat: _Beat
+    dom: str
+
+
 class Scene:
     """A Playwright page that records video, driven one beat at a time.
 
@@ -808,9 +843,36 @@ class Scene:
     `show` renders a string with `set_content`, so a frame needs no web server.
     `goto` is there for the one piece whose BEFORE really is a served page.
 
-    `panel` grabs whatever is on screen right now for the title card, and on
-    the way out the two panels become `poster` — see demo/lib/card.py. A scene
-    given no `poster` collects nothing and behaves exactly as it did before.
+    `panel` marks the beat on screen right now as one half of the title card,
+    and on the way out the two panels become `poster` — see demo/lib/card.py.
+    A scene given no `poster` collects nothing and behaves exactly as it did
+    before.
+
+    Nothing screenshots the recording page while it is recording. Chromium's
+    element-screenshot path resizes the capture surface, and the screencast
+    behind `record_video_dir` emits whatever is on that surface: the frames
+    come out as the bare element pinned to the top-left of the video canvas
+    with flat grey where the rest of the page should be. Measured on all five
+    pieces, every `panel()` call leaked one to five such frames, and on three
+    of them a leaked frame landed last — which is the frame a player holds
+    after playback ends, so it is the image left on screen (THE-295).
+
+    So `panel` serialises the page with `page.content()` and that DOM is put
+    back up after the recording context is closed and the video finalised —
+    same browser, same viewport, same markup, held for the same time, so the
+    animated beats settle the way they settled on camera. See `_render_panels`.
+
+    `page.content()` is a DOM read over CDP with no rasterisation, so it has no
+    capture surface to resize. Controlled the same way the screenshot was, on
+    the piece that exercises every path: two catalog-watch recordings, one
+    calling `content()` at each panel and one calling nothing. Both mp4s came
+    out clean over a full frame-by-frame decode (555 and 554 frames, no leaked
+    frame in either). The no-`content()` arm's *gif* did flag one frame, at the
+    0.8 s title-card boundary — that arm renders a blank card by construction,
+    since suppressing the capture leaves the panels empty, so the flag is the
+    control's own blank poster and not the recording. Stated rather than
+    tidied away: it is the one reading in the pair that is not a clean zero
+    (THE-303).
     """
 
     def __init__(self, video_dir: Path, viewport: dict | None = None,
@@ -821,6 +883,8 @@ class Scene:
         self.poster = Path(poster) if poster else None
         self.poster_path: Path | None = None
         self.panels: list[card.Panel] = []
+        self._marks: list[_Mark] = []
+        self._beat: _Beat | None = None
 
     def __enter__(self) -> "Scene":
         from playwright.sync_api import sync_playwright
@@ -838,22 +902,49 @@ class Scene:
         return self
 
     def show(self, html: str, hold: float) -> None:
+        self._beat = _Beat(kind="html", source=html, hold=hold)
         self.page.set_content(html, wait_until="load")
         self.page.wait_for_timeout(hold * 1000)
 
     def goto(self, url: str, hold: float) -> None:
+        self._beat = _Beat(kind="url", source=url, hold=hold)
         self.page.goto(url, wait_until="networkidle")
         self.page.wait_for_timeout(hold * 1000)
+
+    def _play(self, page, mark: _Mark) -> None:
+        """Put one marked beat back on a page, as it stood when it was marked.
+
+        The DOM that goes up is `mark.dom` -- the page serialised at `panel()`
+        time -- rather than `beat.source`, so anything the scene painted on
+        after the show/goto comes back with it. A `url` beat is navigated to
+        first and only then overwritten: the navigation is what makes relative
+        stylesheet and image URLs in that DOM resolve, because `set_content`
+        leaves the document URL alone.
+
+        The hold is replayed rather than skipped because a beat can be animated
+        -- `terminal_html` types its command over TYPE_SECONDS -- so the layout
+        gets the same settling time the camera gave it.
+        """
+        if mark.beat.kind == "url":
+            page.goto(mark.beat.source, wait_until="networkidle")
+        page.set_content(mark.dom, wait_until="load")
+        page.wait_for_timeout(mark.beat.hold * 1000)
 
     def panel(self, tone: str, label: str, detail: str, *,
               selector: str | None = card.ARTIFACT) -> None:
         """Keep this beat as one half of the title card.
 
         Called *after* the `show`/`goto` whose frame it wants, so the panel is
-        a screenshot of a frame the clip really contains rather than of a page
-        built for the card. `selector=None` shoots the whole viewport, which is
-        what a piece whose frame is a served page wants; the default shoots the
-        artifact inside a sheet.py frame and leaves the narration bar out.
+        the frame the clip really contains rather than a page built for the
+        card. `selector=None` shoots the whole viewport, which is what a piece
+        whose frame is a served page wants; the default shoots the artifact
+        inside a sheet.py frame and leaves the narration bar out.
+
+        This only *marks* the beat, and marking it serialises the page with
+        `page.content()`. The screenshot is taken after the video is finalised,
+        off camera -- see the class docstring for the frames the old
+        during-the-take screenshot leaked into the clip, and `_Mark` for why
+        the serialised DOM rather than the beat's source is what gets kept.
 
         Exactly two panels, "before" then "after" — card.py draws two halves
         and a scene that offered three would have to decide which to drop, a
@@ -861,22 +952,59 @@ class Scene:
         """
         if self.poster is None:
             return
-        if len(self.panels) == 2:
+        if len(self._marks) == 2:
             raise ValueError(
                 "Scene.panel: the title card has two halves and both are "
-                f"already taken ({self.panels[0].tone}, {self.panels[1].tone})"
+                f"already taken ({self._marks[0].tone}, {self._marks[1].tone})"
             )
-        target = self.page if selector is None else self.page.locator(selector).first
-        self.panels.append(
-            card.Panel(tone=tone, label=label, detail=detail,
-                       png=target.screenshot(type="png"))
+        if self._beat is None:
+            raise ValueError(
+                "Scene.panel: nothing has been shown yet, so there is no beat "
+                "to keep. Call panel() after the show()/goto() it wants."
+            )
+        self._marks.append(
+            _Mark(tone=tone, label=label, detail=detail,
+                  selector=selector, beat=self._beat,
+                  dom=self.page.content())
         )
+
+    def _render_panels(self) -> list[card.Panel]:
+        """Re-render the marked beats in a context that is not recording.
+
+        Same browser and same viewport as the take, so the fonts and the
+        layout are the ones the clip shows; no `record_video_dir`, so the
+        screenshots cannot land in a video that is already closed anyway.
+        """
+        context = self._browser.new_context(
+            viewport=self.viewport, device_scale_factor=1,
+        )
+        try:
+            page = context.new_page()
+            panels = []
+            for mark in self._marks:
+                self._play(page, mark)
+                target = (page if mark.selector is None
+                          else page.locator(mark.selector).first)
+                panels.append(card.Panel(
+                    tone=mark.tone, label=mark.label, detail=mark.detail,
+                    png=target.screenshot(type="png"),
+                ))
+            return panels
+        finally:
+            context.close()
 
     def __exit__(self, *exc) -> None:
         self.video_path = Path(self.page.video.path())
         self._context.close()
-        self._browser.close()
-        self._playwright.stop()
+        # The video is finalised by the line above, so the panel screenshots
+        # can no longer reach it. Still the recording browser, though: a second
+        # Chromium would be a second font configuration.
+        try:
+            if exc[0] is None and self.poster is not None and self._marks:
+                self.panels = self._render_panels()
+        finally:
+            self._browser.close()
+            self._playwright.stop()
         # After the recording browser is gone, not before: the card gets its
         # own Chromium with a different font configuration (card.py explains
         # why), and two live browsers for no reason is two things to leak.
