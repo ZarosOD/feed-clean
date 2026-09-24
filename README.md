@@ -135,7 +135,9 @@ download on top of that, which I have not timed, so the wall clock for a first
 `make demo` is the one number here I cannot give you. It leaves **762 MB** in
 `demo/.toolchain/` — 549 MB of that the unpacked Chromium, and 2 MB the
 typeface `demo/lib/fonts.sh` pins for the title card — all of it inside
-the repo and none of it installed system-wide. `make clean` removes it.
+the repo and none of it installed system-wide. That is the Playwright recipe
+alone; `make demo-terminal` adds 24 MB more to the same directory and a second
+Chromium under `~/.cache/rod`. `make clean` removes `demo/.toolchain/`.
 
 If you would rather use your own tooling:
 
