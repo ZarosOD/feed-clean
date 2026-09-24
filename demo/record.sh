@@ -14,6 +14,10 @@
 # A recipe is demo/lib/<name>.sh and must define two functions:
 #   recipe_bootstrap        fetch whatever it needs, no root, inside the repo
 #   recipe_record OUT_DIR   leave a clip in OUT_DIR, optionally set RECIPE_CLIP
+#
+# The output directory is wiped before the recipe runs, so everything kept in
+# it has to be rebuilt by the recording. Anything that was there and is not
+# afterwards is put back and the run fails -- see restore_unrebuilt below.
 
 set -euo pipefail
 
@@ -79,7 +83,59 @@ done
 say "bootstrapping the $RECIPE toolchain"
 recipe_bootstrap
 
+# OUT_DIR is wiped below and that is deliberate: a recording that inherits a
+# frame from the last one is not a recording of this commit. But OUT_DIR is
+# also where the *committed* artifacts live, and a recipe only rebuilds the
+# ones it produces itself. Run the vhs recipe in a repo whose poster.png comes
+# from the Playwright scene and the poster is deleted and never put back --
+# green exit code, a clip on disk, a file gone (THE-282, found on a demo whose
+# two README stills lived here).
+#
+# So: remember what was in there, and on the way out put back anything the run
+# did not rebuild, then fail saying which. Restoring rather than only reporting
+# is the point. A documented command must not leave the tree missing a
+# committed file, and that has to hold on the failure paths too -- a recipe
+# that dies halfway is exactly when the directory is empty -- which is why this
+# is an EXIT trap and not a check written after the recording.
+SNAPSHOT=""
+LOST=""
+restore_unrebuilt() {
+  local status=$?
+  local rel
+  [ -n "$SNAPSHOT" ] || return "$status"
+  while IFS= read -r rel; do
+    if [ -z "$rel" ] || [ -e "$OUT_DIR/$rel" ]; then continue; fi
+    mkdir -p "$(dirname "$OUT_DIR/$rel")"
+    cp -a "$SNAPSHOT/$rel" "$OUT_DIR/$rel"
+    LOST="$LOST  $rel
+"
+  done <<EOF
+$(cd "$SNAPSHOT" && find . -type f | sed 's|^\./||' | sort)
+EOF
+  rm -rf "$SNAPSHOT"
+  SNAPSHOT=""
+  if [ -z "$LOST" ]; then return "$status"; fi
+  echo "record.sh: this run did not rebuild what was already in ${OUT_DIR#"$REPO_ROOT"/}:" >&2
+  printf '%s' "$LOST" >&2
+  cat >&2 <<'WHY'
+They have been put back, so the tree is not missing them -- but they are now
+older than the clip beside them, and that is a lie waiting to ship. A file kept
+in this directory has to be produced by the recording, because the recording
+wipes the directory first. Either make this run produce it, or keep it
+somewhere record.sh does not delete. If you are recording a second recipe here,
+give it its own directory with DEMO_OUT_DIR rather than letting it compete for
+this one.
+WHY
+  if [ "$status" -eq 0 ]; then status=1; fi
+  exit "$status"
+}
+trap restore_unrebuilt EXIT
+
 say "recording with $RECIPE"
+if [ -d "$OUT_DIR" ]; then
+  SNAPSHOT="$(mktemp -d)"
+  cp -a "$OUT_DIR/." "$SNAPSHOT/"
+fi
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 recipe_record "$OUT_DIR"
