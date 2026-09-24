@@ -393,6 +393,52 @@ def timed(argv, cwd, env=None):
     return elapsed
 
 
+def drop_dead_tmpdir():
+    """Drop TMPDIR/TEMP/TMP from this process when they name a directory that
+    is not there any more, and return what was dropped.
+
+    Not defensive tidying — this lost a row. Two of the children spawned below
+    choose a scratch directory two different ways:
+
+        Python (`mkdtemp`, the dead-clone rows)   tempfile.gettempdir() *probes*
+                                                  $TMPDIR and falls back to
+                                                  /tmp, silently, when it fails
+        Node (Playwright, inside `make demo`)     reads process.env.TMPDIR and
+                                                  hands it to mkdtemp as-is
+
+    So a stale $TMPDIR is not a uniform failure. It is a failure of exactly the
+    Node row while every Python row keeps returning a plausible number, which
+    is why a pass that inherited a deleted scratch directory measured 12 rows
+    and lost `make demo` in all four repos — one of the four numbers this file
+    exists to measure, gone, with a green-looking report around it.
+
+    Dropping the variable beats repointing it: /tmp is what tempfile would have
+    picked anyway, and inventing a directory here would put the clone somewhere
+    no README claims. Checked per variable rather than once, because a caller
+    that exports TMPDIR and TMP to different paths is not a caller to guess at.
+
+    This reads the environment once, at startup, so it catches a TMPDIR that is
+    already dead and not one that dies *during* the pass — which also happened
+    here, to a dead-clone row whose scratch directory was deleted out from under
+    a running `make test`. A long pass therefore still wants `unset TMPDIR TEMP
+    TMP` in whatever launches it; this only means forgetting that costs a REVIEW
+    line instead of a silently missing row.
+    """
+    dropped = []
+    for name in ("TMPDIR", "TEMP", "TMP"):
+        value = os.environ.get(name)
+        if value and not os.path.isdir(value):
+            del os.environ[name]
+            dropped.append("%s=%s" % (name, value))
+    # gettempdir() caches its answer in this module global on first use, and
+    # `import tempfile` alone does not fill it — but a row that ran before this
+    # one could have. Clearing it makes the fallback re-derive from the
+    # environment we just corrected instead of the one we inherited.
+    if dropped:
+        tempfile.tempdir = None
+    return dropped
+
+
 def dead_clone_env(home):
     """cron's environment, not this shell's. An explicit dict, so nothing
     inherits: an inherited PATH with `uv` on it measures a different claim."""
@@ -705,6 +751,9 @@ def main(argv=None):
 
     print("tools/timings.py — %s, %d repeat(s)" % (piece(), args.repeat))
     report_tree_state()
+    for gone in drop_dead_tmpdir():
+        print("  dropped %s from the environment — that directory no longer "
+              "exists, and the `make demo` row inherits it" % gone)
     print()
 
     text = README.read_text(encoding="utf-8")
