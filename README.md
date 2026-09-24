@@ -86,19 +86,22 @@ make run
 ```
 
 **About 10 seconds** from a dead clone to real output — 9.8, 9.9, 10.1, 10.2,
-10.3 and 10.4 s over six clones in two passes, measured with an empty `HOME`
-and `PATH=/usr/bin:/bin`: no `uv`, no virtualenv, no caches, nothing on the
-machine. Most of that is fetching a pinned `uv` and one wheel, so it moves with
-your connection. On a machine with no Python 3.12 at all, uv downloads an
-interpreter too, which will be slower again — this box has 3.12, so I have no
-measurement of that case and have not put a number on it.
+10.3, 10.3, 10.4, 10.8 and 10.8 s over nine clones in three passes, measured
+with an empty `HOME` and `PATH=/usr/bin:/bin`: no `uv`, no virtualenv, no
+caches, nothing on the machine. Most of that is fetching a pinned `uv` and one
+wheel, so it moves with your connection. On a machine with no Python 3.12 at
+all, uv downloads an interpreter too, which will be slower again — this box has
+3.12, so I have no measurement of that case and have not put a number on it.
 
-`make test` from that same dead clone takes about 82 s — 81.1, 81.7, 81.8,
-82.0, 82.1 and 82.7 s over six clones in two passes. Most of the gap between
-that and the warm number below is building the virtualenv.
+`make test` from that same dead clone takes 81 to 86 s — 81.1, 81.7, 81.8,
+82.0, 82.1, 82.7, 83.9, 85.2 and 86.1 s over nine clones in three passes. The
+three slowest are the three most recent, and the warm suite below moved the
+same way on the same day, so read that as this machine rather than as the
+suite. Most of the gap between these and the warm number is building the
+virtualenv.
 
 ```bash
-make test           # the same 364 tests: 74s warm, 82s from that dead clone
+make test           # the same 364 tests: 76s warm, 85s from that dead clone
 make strict         # the same run, but exit 2 if any row was rejected
 make demo           # regenerate the clip above, headless
 make demo-terminal  # the same story recorded as a terminal session instead
@@ -484,12 +487,13 @@ regression in `test_parse.py` was found.
 make test          # or: .venv/bin/python -m pytest -q
 ```
 
-364 tests, no network, about 74 seconds — 73.9, 74.3 and 76.1 s over three
-runs. Two files are most of that. The nine in `test_make_targets.py` run `make`
-in a throwaway copy of the repo, because the bug they cover only exists at that
-level, and take 31.5 seconds between them; the other 355 take 42.9. Half of
-*those* 42.9 is `test_workbook.py`, which repacks `clean.xlsx` with both clocks
-moved to prove the bytes do not follow the clock.
+364 tests, no network, about 75 seconds — 73.9, 74.3, 74.6, 76.0, 76.1 and
+76.9 s over six runs in two passes. Two files are most of that. The nine in
+`test_make_targets.py` run `make` in a throwaway copy of the repo, because the
+bug they cover only exists at that level, and take 32.5 seconds between them;
+the other 355 take 44.1 seconds. Run on its own, `test_workbook.py` is 19.5 s
+of that 44.1 s, because it repacks `clean.xlsx` with both clocks moved to prove
+the bytes do not follow the clock.
 
 Two of the 364 skip in a dead clone — the `ffprobe` cross-check in
 `test_readme_clip.py`, which needs a toolchain `make demo` downloads. They are
