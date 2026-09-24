@@ -135,7 +135,13 @@ def test_setup_fresh_removes_the_output(checkout: Path) -> None:
 def test_setup_clears_its_own_scratch_either_way(checkout: Path) -> None:
     """demo/.scratch is the demo's workspace, not output, so it always goes."""
     scratch = checkout / "demo" / ".scratch"
-    scratch.mkdir(parents=True)
+    # exist_ok because `checkout` copies the working tree rather than exporting
+    # HEAD, and demo/.scratch is gitignored — so whatever is in yours comes
+    # along, invisible to `git status`. Without it this test asserted "setup.sh
+    # wipes the scratch" by dying on mkdir the moment anything had already left
+    # one there: a failure about the developer's machine wearing the name of a
+    # failure about setup.sh.
+    scratch.mkdir(parents=True, exist_ok=True)
     (scratch / "leftover").write_text("x", encoding="utf-8")
 
     assert setup_sh(checkout).returncode == 0

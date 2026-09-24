@@ -48,22 +48,27 @@ measured median against the *hull* of every figure in those chunks: inside is
 Two limits, both deliberate:
 
   * **One sentence can carry two rows' figures**, and then both hulls are
-    wider than either claim. feed-clean's quick start says "the same 333 tests:
+    wider than either claim. feed-clean's quick start says "the same 364 tests:
     72s warm, 78s from that dead clone" — one chunk, two rows, a hull of 72-78
-    for each. The report prints the chunk and its figures under every row that
-    selected it, so a reader can see that is what happened. A tighter pattern
-    per wording was the alternative, and it would go quiet the first time
-    somebody rewrapped a line.
+    for each, which is harmless. It stops being harmless when the two figures
+    are far apart: inbox-filer wrote "| `.venv` / demo toolchain | 6.8 MB /
+    760 MB |", so the `.venv` hull was 6.8-760, a measured 118 MB landed inside
+    it, and a claim wrong by 17x was reported `ok`. Printing the chunk under
+    every row that selected it was supposed to let a reader catch that; it did
+    not, because printing your inputs is not the same as anyone checking them.
+    So a hull more than HULL_RATIO_LIMIT times wider than its own floor is now
+    `WIDE` and needs a human. Split the sentence; do not raise the limit.
   * **A reworded claim and a deleted claim look identical to a regex.** So
     CLAIMED_AT_BIRTH records which rows each README stated when this file was
     written, and a row that stops matching is reported `MISSING`, not `n/a`.
     Deleting a claim for real means deleting its entry here in the same commit.
 
 Exit code: 0 when every row this README claims came out `ok`, plus whatever it
-claims nothing about; 1 when any claimed row is `REVIEW`, `STALE`, `MISSING` or
-could not be measured at all; 2 when you invoked it wrong. A row that could not
-run is NOT a pass — the README still states the number and nothing re-measured
-it, and `skipped` reading as green is the silence this target exists to end.
+claims nothing about; 1 when any claimed row is `REVIEW`, `STALE`, `MISSING`,
+`NEW`, `WIDE` or could not be measured at all; 2 when you invoked it wrong or
+the pattern pins below no longer hold. A row that could not run is NOT a pass —
+the README still states the number and nothing re-measured it, and `skipped`
+reading as green is the silence this target exists to end.
 
 `make timings` therefore prints `make: *** Error 1` when it has something to
 tell you. That is the exit code arriving, not a crash.
@@ -111,7 +116,22 @@ def piece():
 # else.
 DEAD_CLONE_PATH = "/usr/bin:/bin"
 
-SECONDS = r"(\d+(?:\.\d+)?)\s*(?:s\b|secs?\b|seconds?\b)"
+# A figure in seconds, including the ones in a sample list that do not carry
+# the unit themselves. All four READMEs write their evidence as "**about 25
+# seconds** ... — 24.4, 24.6 and 26.2 s over three runs": one unit at the end of
+# the list, because that is how the sentence reads. A pattern that required the
+# unit per figure saw only `25` and `26.2` there, so the hull came out 25-26.2
+# and a measured 24.6 — a value the README explicitly quotes — was reported
+# REVIEW. Narrower than the claim is not the safe direction: it manufactures
+# review lines, and a tool that cries wolf is one nobody reads.
+#
+# So a bare figure also counts when it sits in a list: followed by `, <digit>`,
+# by ` and <digit>`, or by the ` over N runs/clones/samples` that ends one.
+# Each alternative is a list separator, never bare prose — "Python 3.12 at all"
+# and "760 MB inside" stay unmatched.
+SECONDS = (r"(\d+(?:\.\d+)?)(?=\s*(?:s\b|secs?\b|seconds?\b)"
+           r"|\s*,\s*\d|\s+and\s+\d"
+           r"|\s+over\s+\w+\s+(?:runs?|clones?|samples?))")
 MEGABYTES = r"(\d+(?:\.\d+)?)\s*MB\b"
 COUNT_OF_TESTS = r"(\d+) tests\b"
 
@@ -161,6 +181,21 @@ ROWS = [
 ]
 
 BY_KEY = {row.key: row for row in ROWS}
+
+# A hull this many times wider than its own floor is reported WIDE rather than
+# ok. The docstring above calls a shared chunk a known limit; it is worse than
+# a limit, because it turns into a *false green*. inbox-filer wrote its two
+# sizes in one table cell — "| `.venv` / demo toolchain | 6.8 MB / 760 MB |" —
+# so the `.venv` row's hull was 6.8-760 and a measured 118 MB landed inside it
+# and passed. The claim was wrong by 17x and the tool said ok.
+#
+# 4 is a threshold, not a derivation, and it is chosen with the quantifier
+# written down: the widest hull any *legitimate* shared chunk produced across
+# the four READMEs is 760/549 = 1.38x (toolchain and Chromium in one sentence),
+# and the next widest is 78/72 = 1.08x. 4 sits well clear of every real one and
+# well under the 112x that hid the defect. Move it if a real claim ever trips
+# it — but split the sentence first.
+HULL_RATIO_LIMIT = 4
 
 # Which rows each README stated a figure for on 2026-09-23, when this file was
 # written. A row listed here that now matches no chunk is MISSING — the README
@@ -241,6 +276,60 @@ def claims(row, text):
             if figures:
                 found.append((number, chunk, figures))
     return found
+
+
+# --- the patterns, pinned on recorded prose ---------------------------------
+#
+# Every verdict below rests on these three patterns pulling the right figures
+# out of a sentence, and the report prints what they found — which is not the
+# same as anyone reading it. The first version of SECONDS read one figure out of
+# each three-sample list and printed `figures: 23` under a sentence quoting
+# three, and that went past a review because a short list still looks like a
+# list. So the patterns are pinned here, on the real wordings the four READMEs
+# use plus the near-misses, and `main` runs this before it measures anything: a
+# reader that is wrong makes every row below it wrong in a way the row cannot
+# see.
+
+PATTERN_PINS = [
+    # (pattern, text, expected figures)
+    (SECONDS, "Measured on this machine: **about 25 seconds** to re-record "
+              "once the toolchain is there — 24.4, 24.6 and 26.2 s over "
+              "three runs", [25, 24.4, 24.6, 26.2]),
+    (SECONDS, "**About 9 seconds** from a dead clone to real output — 8.8, "
+              "9.5 and 10.2 s over three clones", [9, 8.8, 9.5, 10.2]),
+    (SECONDS, "| `make demo`, toolchain warm | 22 s (21.8, 21.8, 22.0 over "
+              "three runs) |", [22, 21.8, 21.8, 22.0]),
+    (SECONDS, "| dead clone → filed output (`make run`) | 6.2 s median "
+              "(5.9, 6.1, 6.2, 6.6, 7.1 over five clones) |",
+              [6.2, 5.9, 6.1, 6.2, 6.6, 7.1]),
+    (SECONDS, "make test           # the same 364 tests: 72s warm, 78s from "
+              "that dead clone", [72, 78]),
+    (SECONDS, "| dead clone → `make test` (303 tests) | 19.1 s, of which "
+              "12.6 s is the suite |", [19.1, 12.6]),
+    (SECONDS, "take 31 seconds between them; the other 355 take 42", [31]),
+    # Near-misses: prose that holds a number and is not a timing claim.
+    (SECONDS, "On a machine with no Python 3.12 at all, uv downloads an "
+              "interpreter too", []),
+    (SECONDS, "The whole toolchain is 760 MB inside `demo/.toolchain/` — "
+              "549 MB of that the unpacked Chromium", []),
+    (SECONDS, "35 attachments: 29 filed by a rule, 6 unsorted", []),
+    (MEGABYTES, "It leaves **760 MB** in `demo/.toolchain/` — 549 MB of "
+                "that the unpacked Chromium", [760, 549]),
+    (MEGABYTES, "760 seconds is not a size", []),
+    (COUNT_OF_TESTS, "364 tests, no network, about 72 seconds", [364]),
+    (COUNT_OF_TESTS, "318 rows of an invented supplier's weekly export", []),
+]
+
+
+def selftest():
+    """[] when the patterns still read what they were written to read."""
+    broken = []
+    for pattern, text, expected in PATTERN_PINS:
+        found = [float(f) for f in re.findall(pattern, text, re.IGNORECASE)]
+        if found != [float(e) for e in expected]:
+            broken.append("  %r\n    wanted %s, read %s"
+                          % (shorten(text, 88), expected, found))
+    return broken
 
 
 # --- measuring --------------------------------------------------------------
@@ -351,13 +440,34 @@ def warm_demo():
     Refuses rather than downloads: without the toolchain this is a 760 MB fetch
     wearing a 25-second row's name, and the first-run wall clock is the one
     number none of the four READMEs claims.
+
+    It removes what it wrote, and that is not tidiness. `demo/.scratch` is
+    gitignored, so it does not show in `git status`; the `checkout` fixture in
+    tests/test_make_targets.py copies the *working tree* rather than exporting
+    HEAD, so a leftover directory travels into the copy and
+    test_setup_clears_its_own_scratch_either_way dies on `mkdir`. One timing run
+    therefore broke `make test` in the next one — measured, not theorised: the
+    warm-suite and per-file rows of the second pass over feed-clean and
+    inbox-filer both came back NOT MEASURED with a FileExistsError. A tool that
+    breaks the suite it is timing is worse than one that does not run.
     """
     if not (REPO / "demo" / ".toolchain" / "browsers").is_dir():
         raise Skip("no demo/.toolchain/browsers — this row is the *warm* "
                    "re-record; run `make demo` once first")
     env = dict(os.environ)
     env["DEMO_OUT_DIR"] = "demo/.scratch/timings-out"
-    return timed(["make", "demo"], REPO, env)
+    try:
+        return timed(["make", "demo"], REPO, env)
+    finally:
+        # `finally`, because a failed or interrupted re-record leaves the
+        # directory too, and that is the run most likely to be followed by
+        # somebody running the suite to find out what broke.
+        shutil.rmtree(REPO / "demo" / ".scratch" / "timings-out",
+                      ignore_errors=True)
+        try:
+            (REPO / "demo" / ".scratch").rmdir()   # only if we made it, and
+        except OSError:                            # only if nothing else is in
+            pass                                   # it — never rmtree.
 
 
 def megabytes(path):
@@ -438,6 +548,12 @@ def verdict(row, measured, found):
     # named file and a drift in either is a drift.
     outside = [m for m in measured if not low <= m <= high]
     if not outside:
+        if low > 0 and high / low >= HULL_RATIO_LIMIT:
+            return "WIDE", (
+                "inside the %s-%s %s quoted, but that hull spans %.0fx and is "
+                "too wide to mean anything — the chunk states more than one "
+                "row's figure. Split the sentence so each number stands alone."
+                % (fmt(low), fmt(high), row.unit, high / low))
         return "ok", "inside the %s-%s %s the README quotes" % (
             fmt(low), fmt(high), row.unit)
     return "REVIEW", "measured %s %s, outside the %s-%s %s quoted" % (
@@ -487,7 +603,21 @@ def main(argv=None):
                         help="comma-separated row keys; default is all of them")
     parser.add_argument("--list", action="store_true",
                         help="print the rows and their cost, measure nothing")
+    parser.add_argument("--selftest", action="store_true",
+                        help="check the README patterns and exit; this also "
+                             "runs before every measurement")
     args = parser.parse_args(argv)
+
+    broken = selftest()
+    if broken:
+        print("timings.py: the README readers no longer read what they were "
+              "written to read, so every verdict below would be wrong in a "
+              "way it could not report:", file=sys.stderr)
+        print("\n".join(broken), file=sys.stderr)
+        return 2
+    if args.selftest:
+        print("%d pattern pin(s) ok." % len(PATTERN_PINS))
+        return 0
 
     if args.list:
         for row in ROWS:
@@ -556,7 +686,7 @@ def main(argv=None):
             print("  %-14s figures: %s" % ("", ", ".join(fmt(f) for f in figures)))
         print("  -> %-8s %s" % (label, note))
         print()
-        if label in ("REVIEW", "STALE", "MISSING", "NEW"):
+        if label in ("REVIEW", "STALE", "MISSING", "NEW", "WIDE"):
             needs_a_human.append(row.key)
 
     if needs_a_human:
