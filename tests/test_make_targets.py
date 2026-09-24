@@ -30,8 +30,15 @@ OUTPUT_FILES = ("clean.csv", "rejects.csv", "changes.csv", "summary.txt")
 # Everything the copy either cannot use or should not inherit: the venv is
 # symlinked in afterwards, and out/ has to start absent so its reappearance
 # means `make run` created it.
+# demo/.scratch is in here because the copy is of the *working tree*, not of
+# HEAD, and .scratch is gitignored — so whatever a recording or a `make timings`
+# run left in yours would travel into the copy, invisible to `git status`, and
+# test_setup_clears_its_own_scratch_either_way would die on mkdir. catalog-watch
+# has excluded it since it was written; these two had not, and one timings run
+# was enough to break the suite.
 SKIP = shutil.ignore_patterns(
-    ".venv", ".git", "out", "__pycache__", ".pytest_cache", "*.egg-info", ".toolchain"
+    ".venv", ".git", "out", ".scratch", "__pycache__", ".pytest_cache",
+    "*.egg-info", ".toolchain",
 )
 
 pytestmark = [
@@ -135,13 +142,7 @@ def test_setup_fresh_removes_the_output(checkout: Path) -> None:
 def test_setup_clears_its_own_scratch_either_way(checkout: Path) -> None:
     """demo/.scratch is the demo's workspace, not output, so it always goes."""
     scratch = checkout / "demo" / ".scratch"
-    # exist_ok because `checkout` copies the working tree rather than exporting
-    # HEAD, and demo/.scratch is gitignored — so whatever is in yours comes
-    # along, invisible to `git status`. Without it this test asserted "setup.sh
-    # wipes the scratch" by dying on mkdir the moment anything had already left
-    # one there: a failure about the developer's machine wearing the name of a
-    # failure about setup.sh.
-    scratch.mkdir(parents=True, exist_ok=True)
+    scratch.mkdir(parents=True)
     (scratch / "leftover").write_text("x", encoding="utf-8")
 
     assert setup_sh(checkout).returncode == 0

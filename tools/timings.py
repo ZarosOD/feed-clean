@@ -157,8 +157,15 @@ class Row:
 ROWS = [
     Row("tests", "tests collected", "", "instant",
         select=COUNT_OF_TESTS, numbers=COUNT_OF_TESTS, exact=True),
+    # The second alternative used to be `\d+ tests,[^.]*seconds`, and `[^.]*`
+    # cannot cross a decimal point — so inbox-filer's "303 tests, 12.5 seconds,
+    # no network" matched nothing and its warm-suite claim was never read at
+    # all. Bounded by length rather than by "no full stop": a chunk is already
+    # one sentence, so the only thing the old exclusion bought was the bug.
+    # CLAIMED_AT_BIRTH is what caught this — the row came back MISSING rather
+    # than n/a, which is the whole reason that table exists.
     Row("test-warm", "`make test`, .venv warm", "s", "one suite run",
-        select=r"(?=.*\bwarm\b)(?=.*\btests?\b).*|\d+ tests,[^.]*seconds",
+        select=r"(?=.*\bwarm\b)(?=.*\btests?\b).*|\d+ tests,.{0,40}?seconds",
         numbers=SECONDS),
     Row("run-dead", "dead clone -> `make run`", "s", "~10 s per repeat, network",
         select=r"(?=.*dead clone)(?=.*(?:real output|filed output|make run)).*",
@@ -321,6 +328,27 @@ PATTERN_PINS = [
 ]
 
 
+# Which row must, and must not, claim a given sentence. The pins above only
+# cover the `numbers` half; a broken `select` is the quieter failure, because
+# the row simply reports nothing and the report has no line to look wrong. That
+# is exactly how the test-warm pattern above shipped unable to match a decimal.
+SELECT_PINS = [
+    # (row key, text, selected?)
+    ("test-warm", "303 tests, 12.5 seconds, no network.", True),
+    ("test-warm", "364 tests, no network, about 74 seconds.", True),
+    ("test-warm", "| `make test`, .venv warm | 14.0 s (303 tests) |", True),
+    ("test-warm", "**About 9 seconds** from a dead clone to real output", False),
+    ("test-dead", "| dead clone → `make test` (303 tests) | 20.6 s |", True),
+    ("test-dead", "303 tests, 12.5 seconds, no network.", False),
+    ("run-dead", "| dead clone → filed output (`make run`) | 7.1 s |", True),
+    ("run-dead", "| dead clone → `make test` (303 tests) | 20.6 s |", False),
+    ("demo-warm", "**about 24 seconds** to re-record once the toolchain is "
+                  "there", True),
+    ("venv-size", "| `.venv` | 118 MB |", True),
+    ("venv-size", "| demo toolchain | 760 MB |", False),
+]
+
+
 def selftest():
     """[] when the patterns still read what they were written to read."""
     broken = []
@@ -329,6 +357,12 @@ def selftest():
         if found != [float(e) for e in expected]:
             broken.append("  %r\n    wanted %s, read %s"
                           % (shorten(text, 88), expected, found))
+    for key, text, expected in SELECT_PINS:
+        hit = BY_KEY[key].select.search(text) is not None
+        if hit != expected:
+            broken.append("  %r\n    %s should %sbe claimed by %r"
+                          % (shorten(text, 88), "", "" if expected else "not ",
+                             key))
     return broken
 
 
@@ -546,7 +580,16 @@ def verdict(row, measured, found):
     low, high = min(figures), max(figures)
     # Every measured value, not just the largest: test-split measures one per
     # named file and a drift in either is a drift.
-    outside = [m for m in measured if not low <= m <= high]
+    #
+    # The hull is widened by half of the least-precise quoted figure's last
+    # digit, because a README quotes a rounded number and this compares a full
+    # precision one. Without it feed-clean's dead-clone `make run` reported
+    # "measured 10.2 s, outside the 8.8-10.2 s quoted" — a true verdict wearing
+    # a sentence that reads as nonsense, which is how a reader learns to stop
+    # believing the tool. A claim written to the second is a claim about that
+    # second, so ±0.5 s; one written to a tenth is ±0.05.
+    slack = quantum(figures)
+    outside = [m for m in measured if not low - slack <= m <= high + slack]
     if not outside:
         if low > 0 and high / low >= HULL_RATIO_LIMIT:
             return "WIDE", (
@@ -556,12 +599,27 @@ def verdict(row, measured, found):
                 % (fmt(low), fmt(high), row.unit, high / low))
         return "ok", "inside the %s-%s %s the README quotes" % (
             fmt(low), fmt(high), row.unit)
-    return "REVIEW", "measured %s %s, outside the %s-%s %s quoted" % (
-        "/".join(fmt(m) for m in outside), row.unit, fmt(low), fmt(high), row.unit)
+    # Printed to one more digit than fmt, so a value that rounds onto the edge
+    # of the hull does not read as "measured 10.2, outside 8.8-10.2".
+    return "REVIEW", "measured %s %s, outside the %s-%s %s quoted (±%s rounding)" % (
+        "/".join("%.2f" % m for m in outside), row.unit,
+        fmt(low), fmt(high), row.unit, slack)
 
 
 def fmt(value):
     return "%d" % value if float(value).is_integer() else "%.1f" % value
+
+
+def quantum(figures):
+    """Half the last digit of the least-precise figure quoted.
+
+    A README saying "9 seconds" is not claiming 9.000; it is claiming a second
+    that rounds to 9. Comparing a measured 9.43 against it as though it were
+    exact is holding prose to a precision it never offered. The *least* precise
+    figure sets the slack, because the hull's edges are where the comparison
+    happens and one whole-second figure makes the whole hull whole-second.
+    """
+    return 0.5 if all(float(f).is_integer() for f in figures) else 0.05
 
 
 def report_tree_state():
@@ -616,7 +674,8 @@ def main(argv=None):
         print("\n".join(broken), file=sys.stderr)
         return 2
     if args.selftest:
-        print("%d pattern pin(s) ok." % len(PATTERN_PINS))
+        print("%d figure pin(s) and %d select pin(s) ok."
+              % (len(PATTERN_PINS), len(SELECT_PINS)))
         return 0
 
     if args.list:

@@ -85,16 +85,20 @@ git clone <this repo> && cd feed-clean
 make run
 ```
 
-**About 9 seconds** from a dead clone to real output — 8.8, 9.5 and 10.2 s over
-three clones, measured with an empty `HOME` and `PATH=/usr/bin:/bin`: no `uv`,
-no virtualenv, no caches, nothing on the machine. Most of that is fetching a
-pinned `uv` and one wheel, so it moves with your connection. On a machine with
-no Python 3.12 at all, uv downloads an interpreter too, which will be slower
-again — this box has 3.12, so I have no measurement of that case and have not
-put a number on it.
+**About 10 seconds** from a dead clone to real output — 9.8, 9.9, 10.1, 10.2,
+10.3 and 10.4 s over six clones in two passes, measured with an empty `HOME`
+and `PATH=/usr/bin:/bin`: no `uv`, no virtualenv, no caches, nothing on the
+machine. Most of that is fetching a pinned `uv` and one wheel, so it moves with
+your connection. On a machine with no Python 3.12 at all, uv downloads an
+interpreter too, which will be slower again — this box has 3.12, so I have no
+measurement of that case and have not put a number on it.
+
+`make test` from that same dead clone takes about 82 s — 81.1, 81.7, 81.8,
+82.0, 82.1 and 82.7 s over six clones in two passes. Most of the gap between
+that and the warm number below is building the virtualenv.
 
 ```bash
-make test           # the same 364 tests: 72s warm, 78s from that dead clone
+make test           # the same 364 tests: 74s warm, 82s from that dead clone
 make strict         # the same run, but exit 2 if any row was rejected
 make demo           # regenerate the clip above, headless
 make demo-terminal  # the same story recorded as a terminal session instead
@@ -109,13 +113,13 @@ looking at. `make clean` removes `out/` along with the venv and the fetched
 toolchain, and it says so in its name.
 
 `make demo` is the slow one, because it renders a real browser and has to
-download a headless Chromium to do it. Measured on this machine: **about 25
-seconds** to re-record once the toolchain is there — 24.7, 24.7 and 25.1 s over
-three runs. The first run adds the Chromium download on top of that, which I
-have not timed, so the wall clock for a first `make demo` is the one number
-here I cannot give you. It leaves **760 MB** in `demo/.toolchain/` — 549 MB of
-that the unpacked Chromium — all of it inside the repo and none of it installed
-system-wide. `make clean` removes it.
+download a headless Chromium to do it. Measured on this machine: **26 to 27
+seconds** to re-record once the toolchain is there — 26.3, 26.4, 26.5, 26.5,
+26.6 and 27.0 s over six runs in two passes. The first run adds the Chromium
+download on top of that, which I have not timed, so the wall clock for a first
+`make demo` is the one number here I cannot give you. It leaves **760 MB** in
+`demo/.toolchain/` — 549 MB of that the unpacked Chromium — all of it inside
+the repo and none of it installed system-wide. `make clean` removes it.
 
 If you would rather use your own tooling:
 
@@ -480,11 +484,12 @@ regression in `test_parse.py` was found.
 make test          # or: .venv/bin/python -m pytest -q
 ```
 
-364 tests, no network, about 72 seconds. Two files are most of that. The nine
-in `test_make_targets.py` run `make` in a throwaway copy of the repo, because
-the bug they cover only exists at that level, and take 31 seconds between them;
-the other 355 take 42. Half of *those* 42 is `test_workbook.py`, which repacks
-`clean.xlsx` with both clocks moved to prove the bytes do not follow the clock.
+364 tests, no network, about 74 seconds — 73.9, 74.3 and 76.1 s over three
+runs. Two files are most of that. The nine in `test_make_targets.py` run `make`
+in a throwaway copy of the repo, because the bug they cover only exists at that
+level, and take 31.5 seconds between them; the other 355 take 42.9. Half of
+*those* 42.9 is `test_workbook.py`, which repacks `clean.xlsx` with both clocks
+moved to prove the bytes do not follow the clock.
 
 Two of the 364 skip in a dead clone — the `ffprobe` cross-check in
 `test_readme_clip.py`, which needs a toolchain `make demo` downloads. They are
