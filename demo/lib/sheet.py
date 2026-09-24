@@ -794,6 +794,46 @@ def terminal_html(
 # --------------------------------------------------------------------------
 
 
+# How much of the recording is lead-in: shot, and then dropped by the encode.
+#
+# Chromium's screencast starts when the page is created, and the page at that
+# moment is `about:blank`, a white document. So whether the clip opens on the
+# first beat or on a frame of blank white is a race between the screencast's
+# first emitted frame and the first beat's first paint. Measured 2026-09-24 on
+# the five committed clips: catalog-watch opened on two white frames,
+# feed-clean, pdf-to-csv and ocr-scan-to-csv on one each, inbox-filer on none
+# (THE-305). One earlier feed-clean take came out worse than white — a white
+# page with a grey bar down the right third — so the artifact's shape is
+# take-dependent too.
+#
+# Waiting for the paint does not fix it and makes it likelier. Three arms of a
+# minimal recording, same run: the arm that awaited two requestAnimationFrames
+# after `set_content` is the one whose first frame came out 255, and the plain
+# arm's did not. The blank frame is emitted before anything the scene can await.
+# Repeating the plain arm ten times on a trivial page put it at 1 take in 10;
+# these scenes open on a full spreadsheet grid, which paints more slowly, which
+# is why they hit it four times in five.
+#
+# So the scene holds the first beat LEAD_SECONDS longer than it was asked for,
+# writes that number beside the video, and demo/lib/playwright.sh trims exactly
+# that much off the head of the body before encoding. Every frame that survives
+# is a frame of a painted first beat, and the clip's duration is unchanged
+# because the lead is added and removed in the same pipeline.
+#
+# 0.5 s is 12.5 frames at the recording's 25 fps, against a longest observed
+# blank run of 2 frames (0.08 s). That is a margin, not a proof: nothing here
+# bounds how long a first paint can take on a slower box. What proves a given
+# take is the frame scan, which is why it runs on every clip after a re-record
+# rather than being replaced by this constant.
+LEAD_SECONDS = 0.5
+
+# Written into the video directory by a scene that took a lead-in, read by the
+# recipe that encodes the clip. A file rather than a second copy of the
+# constant in the shell: two numbers with the same name agree right up until
+# somebody edits one of them.
+LEAD_FILE = "lead-seconds"
+
+
 @dataclass(frozen=True)
 class _Beat:
     """One `show`/`goto` — where the beat came from, and how long it held."""
@@ -842,6 +882,9 @@ class Scene:
 
     `show` renders a string with `set_content`, so a frame needs no web server.
     `goto` is there for the one piece whose BEFORE really is a served page.
+    The first of the two holds its beat LEAD_SECONDS longer than asked and the
+    encode drops that much off the head, so the clip cannot open on the blank
+    white `about:blank` the screencast starts on — see LEAD_SECONDS.
 
     `panel` marks the beat on screen right now as one half of the title card,
     and on the way out the two panels become `poster` — see demo/lib/card.py.
@@ -885,6 +928,25 @@ class Scene:
         self.panels: list[card.Panel] = []
         self._marks: list[_Mark] = []
         self._beat: _Beat | None = None
+        self._lead_taken = False
+
+    def _lead(self) -> float:
+        """Extra hold for the first beat, and a note of it beside the video.
+
+        Only the first `show`/`goto` gets one: the blank frame this exists to
+        bury is `about:blank`, which is on the capture surface exactly once,
+        before the first beat paints. Later beats replace a painted document
+        with a painted document and were measured clean on all five pieces.
+
+        The note is written when the lead is taken rather than on the way out,
+        so it says what the recording on disk actually contains even if the
+        scene dies later — see LEAD_SECONDS.
+        """
+        if self._lead_taken:
+            return 0.0
+        self._lead_taken = True
+        (self.video_dir / LEAD_FILE).write_text(f"{LEAD_SECONDS}\n")
+        return LEAD_SECONDS
 
     def __enter__(self) -> "Scene":
         from playwright.sync_api import sync_playwright
@@ -904,12 +966,12 @@ class Scene:
     def show(self, html: str, hold: float) -> None:
         self._beat = _Beat(kind="html", source=html, hold=hold)
         self.page.set_content(html, wait_until="load")
-        self.page.wait_for_timeout(hold * 1000)
+        self.page.wait_for_timeout((hold + self._lead()) * 1000)
 
     def goto(self, url: str, hold: float) -> None:
         self._beat = _Beat(kind="url", source=url, hold=hold)
         self.page.goto(url, wait_until="networkidle")
-        self.page.wait_for_timeout(hold * 1000)
+        self.page.wait_for_timeout((hold + self._lead()) * 1000)
 
     def _play(self, page, mark: _Mark) -> None:
         """Put one marked beat back on a page, as it stood when it was marked.

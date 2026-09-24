@@ -174,16 +174,43 @@ recipe_bootstrap() {
 # cover image, so the file the viewer can be handed separately and the first
 # frame of the clip are the same render by construction, not by a copy step
 # somebody has to remember.
+#
+# --- the lead-in at the head of the body --------------------------------
+#
+# The fourth argument is how many seconds of the recording are lead-in the
+# scene never meant to ship, and it comes off the body before anything else
+# touches it. Chromium's screencast starts at page creation, when the page is
+# a blank white about:blank, so the recording's first frames are a race
+# between that and the first beat's first paint — four of the five pieces lost
+# it and opened on a white frame (THE-305). sheet.Scene holds its first beat
+# that much longer and writes the number beside the video, so the seconds
+# added and the seconds cut are one number rather than two that agree until
+# somebody edits one.
+#
+# setpts=PTS-STARTPTS restamps what survives back to zero; without it concat
+# holds the card on screen for the length of the trim. The trim sits in front
+# of fps= so the resampling only ever sees frames that are being kept.
 encode_clip() {
-  local source="$1" out_dir="$2" card="$3"
+  local source="$1" out_dir="$2" card="$3" lead="${4:-0}"
   local gif_scale="scale=${GIF_WIDTH}:-2:flags=lanczos"
   local quant=""
+  local trim=""
 
   if [ ! -s "$card" ]; then
     echo "playwright.sh: the scene left no title card at $card" >&2
     echo "  the scene must pass poster= to sheet.Scene and mark two panels" >&2
     return 1
   fi
+
+  case "$lead" in
+    *[!0-9.]*|''|*.*.*|.)
+      echo "playwright.sh: lead-in '$lead' is not a number of seconds" >&2
+      return 1 ;;
+  esac
+  case "$lead" in
+    0|0.|0.0|.0|0.00) ;;
+    *) trim="trim=start=${lead},setpts=PTS-STARTPTS," ;;
+  esac
 
   if [ "$GIF_QUANT" -gt 1 ]; then
     local snap="trunc(val/${GIF_QUANT})*${GIF_QUANT}"
@@ -196,7 +223,7 @@ encode_clip() {
     -i "$source" \
     -filter_complex "\
       [0:v]${gif_scale},setsar=1,format=rgb24[card]; \
-      [1:v]fps=${GIF_FPS},${gif_scale},setsar=1,format=rgb24[body]; \
+      [1:v]${trim}fps=${GIF_FPS},${gif_scale},setsar=1,format=rgb24[body]; \
       [card][body]concat=n=2:v=1[joined]; \
       [joined]${quant}split[a][b]; \
       [a]palettegen=max_colors=128:stats_mode=full[p]; \
@@ -219,7 +246,7 @@ encode_clip() {
     -i "$source" \
     -filter_complex "\
       [0:v]${mp4_scale},setsar=1,format=yuv420p[card]; \
-      [1:v]fps=${MP4_FPS},${mp4_scale},setsar=1,format=yuv420p[body]; \
+      [1:v]${trim}fps=${MP4_FPS},${mp4_scale},setsar=1,format=yuv420p[body]; \
       [card][body]concat=n=2:v=1[v]" \
     -map "[v]" \
     -c:v libx264 -pix_fmt yuv420p -crf 26 -preset veryfast \
@@ -274,7 +301,18 @@ recipe_record() {
     return 1
   fi
 
-  encode_clip "$source" "$out_dir" "$card"
+  # sheet.Scene leaves this beside the video; see encode_clip's lead-in note.
+  # A scene that is not a sheet.Scene leaves none, and 0 is then the honest
+  # answer — but say so, because a silently missing lead is the blank opening
+  # frame coming back with nothing in the log to show it.
+  local lead=0
+  if [ -f "$raw/lead-seconds" ]; then
+    lead="$(tr -d '[:space:]' < "$raw/lead-seconds")"
+  else
+    pw_log "no lead-seconds beside the video: nothing trimmed off the head"
+  fi
+
+  encode_clip "$source" "$out_dir" "$card" "$lead"
   rm -rf "$raw"
   RECIPE_CLIP="$out_dir/demo.gif"
 }
