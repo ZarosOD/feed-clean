@@ -8,7 +8,9 @@ sentences they contradict.
     python3 tools/timings.py --help
 
 This file is byte-identical in all four portfolio repos (pdf-to-csv,
-catalog-watch, feed-clean, inbox-filer). It is stdlib only and needs no venv,
+catalog-watch, feed-clean, inbox-filer), and `tools/demo_lib_drift.py` is what
+holds it that way, from its SHARED_ROOT list (THE-274). It is stdlib only and
+needs no venv,
 on purpose: half of what it measures is what a client gets from a dead clone,
 and a tool that needed the venv first could not measure the clone that has not
 built one yet.

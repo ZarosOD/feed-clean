@@ -54,9 +54,10 @@ What it cannot see, said out loud:
     it. It checks the number in the sentence against the cross-check's own
     parametrised count.
 
-tools/demo_lib_drift.py covers demo/, not the repo root, so it does not see
-this file — the same gap test_readme_clip.py, test_demo_fetch.py and
-test_demo_sheet.py sit in. Copy them together.
+tools/demo_lib_drift.py holds the four copies of this file identical, from its
+SHARED_ROOT list (THE-274). That list is declared rather than discovered, so a
+new shared file beside this one stays checked by nothing until its path is
+added to it.
 """
 
 from __future__ import annotations
