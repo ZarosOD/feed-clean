@@ -851,11 +851,11 @@ class _Mark:
     `dom` is the *serialised page* as it stood when `panel()` was called, not
     `beat.source`. The two are the same thing only when the beat's source is
     the whole truth about what is on screen, and for one of the five pieces it
-    is not: catalog-watch `goto`s a served page and then paints the narration
-    bar with `add_style_tag`/`evaluate` and the change highlights with a second
-    `evaluate`. Replaying the URL re-fetched the bare storefront, so the card's
-    AFTER half came out identical to its BEFORE half under a caption reading
-    "Every change, marked" (THE-303).
+    is not: catalog-watch `goto`s a served page, and its narration bar and its
+    change marks are painted into that page by an init script the replay
+    context below does not carry (THE-308). Replaying the URL re-fetched the
+    bare storefront, so the card's AFTER half came out identical to its BEFORE
+    half under a caption reading "Every change, marked" (THE-303).
 
     `page.content()` is a DOM read, not a raster: it never touches the capture
     surface, which is the thing that leaked frames into the video. Controlled,
