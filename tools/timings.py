@@ -762,9 +762,10 @@ def warm_demo():
     first-run wall clock is the one number none of these READMEs claims.
 
     It removes what it wrote, and that is not tidiness. `demo/.scratch` is
-    gitignored, so it does not show in `git status`; the `checkout` fixture in
-    tests/test_make_targets.py copies the *working tree* rather than exporting
-    HEAD, so a leftover directory travels into the copy and
+    gitignored, so it does not show in `git status`; and where a repo has a
+    suite that drives `make` against a throwaway copy of itself, that copy
+    is taken from the *working tree* rather than exported from HEAD, so a
+    leftover directory travels into the copy and
     test_setup_clears_its_own_scratch_either_way dies on `mkdir`. One timing run
     therefore broke `make test` in the next one — measured, not theorised: the
     warm-suite and per-file rows of the second pass over feed-clean and
