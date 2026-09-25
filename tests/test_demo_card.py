@@ -4,9 +4,10 @@
 This file is byte-identical in all four portfolio repos, the same way
 test_demo_sheet.py is, because the thing it tests is byte-identical in all
 four. It reads its own repo's demo/out/, so one file is all four. It is
-declared in SHARED_ROOT in tools/demo_lib_drift.py — that arm is a list and not
-a walk, so a new shared test beside this one is checked by nothing until its
-path is added there.
+declared in the SHARED_ROOT list of the maintainers' drift checker, a rookery
+tool that is not in this repo — that arm is a list and not a walk, so a new
+shared test beside this one is checked by nothing until its path is added
+there.
 
 --- what is actually being claimed, and what each arm can see ---------------
 

@@ -9,9 +9,10 @@ The shim is a `curl` on PATH that fails a scripted number of times and then
 succeeds, so the retry ladder is exercised for real (bash, subshells, exit
 codes) instead of being asserted about in a comment.
 
-This file is byte-identical in all four portfolio repos, and since THE-274
-`tools/demo_lib_drift.py` keeps it that way from its SHARED_ROOT list. Before
-that it was copied by hand and nothing watched it.
+This file is byte-identical in all four portfolio repos, and since THE-274 the
+maintainers' drift checker keeps it that way from its SHARED_ROOT list. That
+checker is a rookery tool and is not in this repo, so there is nothing here to
+run; before it existed this file was copied by hand and nothing watched it.
 """
 
 from __future__ import annotations

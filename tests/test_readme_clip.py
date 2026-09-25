@@ -29,10 +29,11 @@ committed clips (four gif, four mp4) at the commit that added this file, and
 agreed to the last digit on every one; `test_the_readers_agree_with_ffprobe`
 re-runs that cross-check whenever a toolchain happens to be present.
 
-`tools/demo_lib_drift.py` holds the four copies of this file identical, from
-its SHARED_ROOT list (THE-274). Unlike the demo/ half of that tool, SHARED_ROOT
-is declared rather than discovered, so a new shared file beside this one stays
-checked by nothing until somebody adds its path to it.
+The maintainers' drift checker holds the four copies of this file identical,
+from its SHARED_ROOT list (THE-274). It is a rookery tool and is not in this
+repo, so there is nothing here to run. Unlike the demo/ half of that tool,
+SHARED_ROOT is declared rather than discovered, so a new shared file beside
+this one stays checked by nothing until somebody adds its path to it.
 """
 
 from __future__ import annotations

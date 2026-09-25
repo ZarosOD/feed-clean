@@ -14,12 +14,13 @@ promises the clip makes to a client:
     column letters and row numbers rather than renumbering to hide the gaps;
   * the command on screen is the command that produced the output under it.
 
-`tools/demo_lib_drift.py` covers demo/, so it is what keeps the four copies of
-sheet.py identical, and since THE-274 it covers this file too, from its
-SHARED_ROOT list. That second arm is a declared list and not a walk — the repo
-root cannot be walked without reporting every piece's own source as undeclared
-— so a new file meant to be shared beside this one is checked by nothing until
-its path is added to SHARED_ROOT.
+The maintainers' drift checker covers demo/, so it is what keeps the four
+copies of sheet.py identical, and since THE-274 it covers this file too, from
+its SHARED_ROOT list. It is a rookery tool and is not in this repo, so there is
+nothing here to run. That second arm is a declared list and not a walk — the
+repo root cannot be walked without reporting every piece's own source as
+undeclared — so a new file meant to be shared beside this one is checked by
+nothing until its path is added to SHARED_ROOT.
 """
 
 from __future__ import annotations

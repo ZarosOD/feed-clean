@@ -2,7 +2,8 @@
 """Film a file this run actually wrote, open in a spreadsheet grid.
 
 Generic: do not edit per project. This is the shared renderer all four pieces
-call, and `tools/demo_lib_drift.py` holds every copy of it to byte-identical.
+call, and the maintainers' drift checker — a rookery tool, not in this repo —
+holds every copy of it to byte-identical.
 The per-piece file is demo/scene.py, which decides *which* files to open and
 what to say about them.
 

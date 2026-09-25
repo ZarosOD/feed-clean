@@ -62,10 +62,11 @@ What it cannot see, said out loud:
     was false the moment the second file appeared. Adding an entry is one
     line; noticing that one is missing is a dead-clone run.
 
-tools/demo_lib_drift.py holds the four copies of this file identical, from its
-SHARED_ROOT list (THE-274). That list is declared rather than discovered, so a
-new shared file beside this one stays checked by nothing until its path is
-added to it.
+The maintainers' drift checker holds the four copies of this file identical,
+from its SHARED_ROOT list (THE-274). It is a rookery tool and is not in this
+repo, so there is nothing here to run. That list is declared rather than
+discovered, so a new shared file beside this one stays checked by nothing until
+its path is added to it.
 """
 
 from __future__ import annotations
