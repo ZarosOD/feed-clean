@@ -484,6 +484,15 @@ NOT_A_TOOLCHAIN_CLAIM = (
     "not timed.",
 )
 
+# ⚠️ Every figure below — here and in SELECT_PINS — is a synthetic fixture.
+# These pin sentence *shapes*, not live claims, so the numbers inside them
+# deliberately do not track any README and must not be "corrected" when a
+# measured figure moves. Some are retuned on purpose (700/500 above) and some
+# are the historical wordings that the patterns were written against (760 MB);
+# both are load-bearing as fixtures and inert as claims. A pin that matched a
+# live figure would be a check on itself: the pin would move with the claim it
+# exists to read. The live figures live in the README, and the rows above are
+# what read them.
 PATTERN_PINS = [
     # (pattern, text, expected figures)
     (SECONDS, "Measured on this machine: **about 25 seconds** to re-record "
@@ -744,9 +753,13 @@ def warm_demo():
     recorded run is a first run) and the scene rewrites it — report_tree_state()
     prints anything that ends up differing from HEAD.
 
-    Refuses rather than downloads: without the toolchain this is a 760 MB fetch
-    wearing a 25-second row's name, and the first-run wall clock is the one
-    number none of the four READMEs claims.
+    Refuses rather than downloads: without the toolchain this is a *first*
+    run wearing the warm re-record row's name. What a first `make demo` leaves
+    is 762 MB in `demo/.toolchain/` — measured with `du -sm` on 2026-09-24,
+    TERMINAL_RECIPE_BINARIES excluded, and it is the figure this repo's README
+    states. That is a size on disk, not a size on the wire: how much of it
+    crosses the network is a figure nothing here has measured, and the
+    first-run wall clock is the one number none of these READMEs claims.
 
     It removes what it wrote, and that is not tidiness. `demo/.scratch` is
     gitignored, so it does not show in `git status`; the `checkout` fixture in
