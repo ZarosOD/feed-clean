@@ -45,9 +45,9 @@ pre-split generation and carried seven declared exceptions; THE-255 moved it
 onto this same lib so it could record a scene too, and deleted all seven.
 
 That sync was a day late and nothing noticed, because the drift check read only
-`demo/lib/` and `record.sh` sits one directory up. It reads all of `demo/` now
-(`tools/demo_lib_drift.py`), so the next copy that stops at three of four is a
-failing check rather than a diff somebody happens to run.
+`demo/lib/` and `record.sh` sits one directory up. It reads all of `demo/` now,
+so the next copy that stops at three of four is a failing check rather than a
+diff somebody happens to run.
 
 The history explains why the files are shaped the way they are:
 
@@ -68,7 +68,8 @@ The history explains why the files are shaped the way they are:
 
 All four pieces end their clip on the file the run just wrote, open in a
 spreadsheet grid. That is one job, so it is one file — shared, byte-identical
-everywhere, and policed by `tools/demo_lib_drift.py` like the rest of `lib/`.
+everywhere, and policed like the rest of `lib/` by a drift checker that lives
+in the maintainers' working tree and does not ship inside this repo.
 What stays per-piece is `scene.py`: which files this piece opens, which of its
 columns are worth showing, and what the narration says.
 
