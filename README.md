@@ -109,7 +109,7 @@ with that width in mind, and read none of them as a comparison between two
 versions of the suite.
 
 ```bash
-make test           # the same 377 tests: 67-77s warm, 70-86s from a dead clone
+make test           # the same 379 tests: 67-77s warm, 70-86s from a dead clone
 make strict         # the same run, but exit 2 if any row was rejected
 make demo           # regenerate the clip above, headless
 make demo-terminal  # the same story recorded as a terminal session instead
@@ -492,7 +492,7 @@ regression in `test_parse.py` was found.
 - **No image fetching.** It checks that an image URL is an absolute http(s)
   URL. It does not check that the image exists, is the right size, or is not a
   placeholder.
-- Tested against the bundled fixture and 377 tests. On a real feed the
+- Tested against the bundled fixture and 379 tests. On a real feed the
   honest expectation is that most rows come out clean and the rest get flagged
   or rejected rather than silently wrong. That is what the flag is for.
 
@@ -502,7 +502,7 @@ regression in `test_parse.py` was found.
 make test          # or: .venv/bin/python -m pytest -q
 ```
 
-377 tests, no network, **about 67 seconds** on 2026-09-24. The six runs behind
+379 tests, no network, **about 67 seconds** on 2026-09-24. The six runs behind
 the 75 s this used to say — 73.9, 74.3, 74.6, 76.0, 76.1 and 76.9 s in two
 passes — were the 364-test suite, before the title card brought thirteen more.
 Do not read 75 → 67 as the suite getting faster while it grew: a dead clone of
@@ -513,12 +513,12 @@ as a single sample.
 Two files are most of that. The nine in
 `test_make_targets.py` run `make` in a throwaway copy of the repo, because the
 bug they cover only exists at that level, and take 26.8 seconds between them;
-the other 368 take 40.5 seconds. Run on its own, `test_workbook.py` was 19.5 s
+the other 370 take 40.5 seconds. Run on its own, `test_workbook.py` was 19.5 s
 of the 44.1 s that row used to read — it has not been re-timed on its own since,
 so that is a share of the older number and not of the 40.5 — because it repacks
 `clean.xlsx` with both clocks moved to prove the bytes do not follow the clock.
 
-Four of the 377 skip in a dead clone: the two `ffprobe` cross-checks in
+Four of the 379 skip in a dead clone: the two `ffprobe` cross-checks in
 `tests/test_readme_clip.py`, and in `tests/test_demo_card.py` the comparison of
 `demo/out/poster.png` against frame 0 of the mp4 and the proof that the title
 card's typeface is the vendored one. All four want something `make demo`
@@ -538,7 +538,7 @@ which is read end to end with nothing but the standard library.
 | `test_cli.py` | End to end over the bundled feed, asserting against `tests/expected.json`. |
 | `test_demo_preview.py`, `test_demo_fetch.py` | The shared recording helpers in `demo/lib/`: the table renderer and the download retry ladder. |
 | `test_demo_sheet.py` | The shared spreadsheet renderer in `demo/lib/sheet.py`, which draws the clip's BEFORE and AFTER frames: that it refuses to render a file that is not on disk, that a filtered view keeps the source file's own column letters and row numbers, and that the command on screen is the one whose output is under it. |
-| `test_demo_outputs.py` | That the recording writes both the GIF and the MP4, including the case where `vhs` exits `0` having skipped one of them. |
+| `test_demo_outputs.py` | That the recording writes both the GIF and the MP4, including the case where `vhs` exits `0` having skipped one of them — and, on the other side, that `demo/out-terminal/` appears in neither the index nor the committed tree, so the VHS sibling's output cannot be published stale behind a `.gitignore` line that cannot un-track it. A positive control builds a repo that commits one, so an empty answer is not the query's. |
 | `test_readme_clip.py` | The clip-length sentence in this README, read back off the committed `demo/out/demo.gif` and `demo/out/demo.mp4`. It parses the numbers out of README.md rather than restating them, so a re-record that moves the clip and leaves the prose behind fails here. The duration readers are stdlib, because a dead clone has no `ffprobe`, and they are pinned against hand-built mp4 and gif headers. |
 | `test_make_targets.py` | Which `make` targets may touch `out/`. `make run` writes it; `test`, `strict` and `fixtures` must leave whatever is there alone; only the recording asks `setup.sh` to delete it. |
 | `test_readme_counts.py` | The test counts in this README, read back off `pytest --collect-only`: the total, the dead-clone skip figure (off the ffprobe cross-check's own parametrised count, not a number typed twice) and any per-file split quoted below. A count is deterministic, so it is guarded; the wall clocks are not, and `make timings` covers those. |
